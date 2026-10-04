@@ -135,7 +135,9 @@ class TransactionService
         }
 
         $data = $this->normalizeTransactionData($data, false);
-        $this->assertAccountReference(array_merge($transaction, $data));
+        $candidate = array_merge($transaction, $data);
+        $this->assertAccountReference($candidate);
+        $this->assertPaymentReferenceIntegrity($candidate);
 
         $data['Updated_By'] = \App\Support\ActorIdentity::required();
         $data['Updated_At'] = now()->toDateTimeString();
@@ -216,6 +218,9 @@ class TransactionService
 
         $type = strtolower(trim((string) ($data['Reference_Type'] ?? '')));
         $referenceId = trim((string) ($data['Reference_ID'] ?? ''));
+        if ($referenceId === '' && in_array($type, ['payment', 'paymentreversal', 'invoice', 'payroll'], true)) {
+            throw new FinancialIntegrityException("Reference_ID wajib diisi untuk Reference_Type {$data['Reference_Type']}.");
+        }
         if ($referenceId === '' || $type === 'other') {
             return;
         }
@@ -317,7 +322,8 @@ class TransactionService
 
     private function isPaymentLinked(array $transaction): bool
     {
-        return in_array(strtolower(trim((string) ($transaction['Reference_Type'] ?? ''))), ['payment', 'paymentreversal'], true);
+        return trim((string) ($transaction['Reference_ID'] ?? '')) !== ''
+            && in_array(strtolower(trim((string) ($transaction['Reference_Type'] ?? ''))), ['payment', 'paymentreversal'], true);
     }
 
     private function assertPaymentReferenceIntegrity(array $data): void
