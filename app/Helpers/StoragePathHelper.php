@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Storage;
 
 class StoragePathHelper
 {
-    public static function privateFileResponsePath($storedPath): ?string
+    public static function normalizePrivateStoredPath($storedPath): ?string
     {
         if (!is_string($storedPath)) {
             return null;
@@ -23,6 +23,20 @@ class StoragePathHelper
 
         $relativePath = ltrim($relativePath, '/');
         if ($relativePath === '' || preg_match('#(^|/)\.\.(/|$)#', $relativePath) || preg_match('/^[A-Za-z]:/', $relativePath)) {
+            return null;
+        }
+
+        if (str_starts_with(strtolower($relativePath), 'http://') || str_starts_with(strtolower($relativePath), 'https://')) {
+            return null;
+        }
+
+        return $relativePath;
+    }
+
+    public static function privateFileResponsePath($storedPath): ?string
+    {
+        $relativePath = self::normalizePrivateStoredPath($storedPath);
+        if ($relativePath === null) {
             return null;
         }
 
