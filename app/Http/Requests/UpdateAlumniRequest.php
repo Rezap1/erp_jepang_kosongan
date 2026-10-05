@@ -19,9 +19,11 @@ class UpdateAlumniRequest extends FormRequest
             'Parent_Name' => 'required|string|max:150',
             'Indonesia_Address' => 'required|string|max:1000',
             'Visa_Number' => 'required|string|max:100',
+            'Visa_Type' => 'required|string|max:100',
+            'Pathway' => 'required|in:TG,MAGANG',
             'Japan_City' => 'required|string|max:150',
             'Departure_Date' => 'required|date|before_or_equal:today',
-            'Photo' => 'nullable|file|image|mimes:jpeg,png,jpg,webp|max:' . config('upload.max_kb', 5120),
+            'Photo' => 'nullable|file|image|mimes:jpeg,png,jpg,webp|max:'.config('upload.max_kb', 5120),
             'remove_photo' => 'nullable|boolean',
         ];
     }
@@ -32,6 +34,9 @@ class UpdateAlumniRequest extends FormRequest
             'Parent_Name.required' => 'Nama orang tua wajib diisi.',
             'Indonesia_Address.required' => 'Alamat lengkap di Indonesia wajib diisi.',
             'Visa_Number.required' => 'Nomor Visa wajib diisi.',
+            'Visa_Type.required' => 'Jenis Visa wajib diisi.',
+            'Pathway.required' => 'Jalur wajib dipilih.',
+            'Pathway.in' => 'Jalur harus Tokutei Ginou (TG) atau Magang.',
             'Japan_City.required' => 'Kota di Jepang wajib diisi.',
             'Departure_Date.required' => 'Tanggal keberangkatan wajib diisi.',
             'Departure_Date.before_or_equal' => 'Tanggal keberangkatan tidak boleh di masa depan.',

@@ -88,6 +88,18 @@
                     <input type="text" name="Visa_Number" value="{{ old('Visa_Number') }}" required class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </label>
                 <label class="block">
+                    <span class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Jenis Visa <span class="text-rose-600">*</span></span>
+                    <input type="text" name="Visa_Type" value="{{ old('Visa_Type') }}" placeholder="Contoh: Specified Skilled Worker" required class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Jalur <span class="text-rose-600">*</span></span>
+                    <select name="Pathway" required class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Pilih jalur</option>
+                        <option value="TG" @selected(old('Pathway') === 'TG')>Tokutei Ginou (TG)</option>
+                        <option value="MAGANG" @selected(old('Pathway') === 'MAGANG')>Magang</option>
+                    </select>
+                </label>
+                <label class="block">
                     <span class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Kota di Jepang <span class="text-rose-600">*</span></span>
                     <input type="text" name="Japan_City" value="{{ old('Japan_City') }}" required class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </label>

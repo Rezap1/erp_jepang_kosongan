@@ -45,7 +45,7 @@ final class WmsMigrationManifest
         'MASTER_PERMANENT_QR' => ['QR_ID', 'QR_ID,QR_TYPE,IDENTIFIER,LABEL,STATUS,CREATED_AT,CREATED_BY,UPDATED_AT,DEACTIVATED_AT,ACTIVE_FROM,ACTIVE_UNTIL,UPDATED_BY'],
         'MASTER_SYSTEM_SETTING' => ['Setting_ID', 'Setting_ID,Category,Setting_Key,Setting_Name,Setting_Value,Value_Type,Description,Is_Public,Status,Created_By,Updated_By,Created_At,Updated_At', true],
         'MASTER_SYSTEM_PARAMETER' => ['Parameter_ID', 'Parameter_ID,Module,Parameter_Key,Parameter_Value,Description,Status,Created_At,Updated_At'],
-        'MASTER_ALUMNI' => ['Alumni_ID', 'Alumni_ID,Source_Type,Student_ID,Full_Name,NIK,Parent_Name,Indonesia_Address,Visa_Number,Japan_City,Departure_Date,Photo,Program_ID,Batch_ID,Class_ID,Status,Is_Active,Created_At,Updated_At,Created_By,Updated_By'],
+        'MASTER_ALUMNI' => ['Alumni_ID', 'Alumni_ID,Source_Type,Student_ID,Full_Name,NIK,Parent_Name,Indonesia_Address,Visa_Number,Visa_Type,Japan_City,Departure_Date,Photo,Program_ID,Pathway,Batch_ID,Class_ID,Status,Is_Active,Created_At,Updated_At,Created_By,Updated_By'],
         'QUIZ' => ['Quiz_ID', 'Quiz_ID,Teacher_ID,Class_ID,Title,Start_At,End_At,Duration_Minutes,Status,Created_At,Updated_At,Created_By,Updated_By'],
         'QUIZ_QUESTION' => ['Question_ID', 'Question_ID,Quiz_ID,Question_Text,Option_A,Option_B,Option_C,Option_D,Correct_Option,Point,Sort_Order,Created_At,Updated_At'],
         'QUIZ_ATTEMPT' => ['Attempt_ID', 'Attempt_ID,Quiz_ID,Student_ID,Started_At,Deadline_At,Status,Submitted_Answers_JSON,Submitted_At,Created_At,Updated_At'],

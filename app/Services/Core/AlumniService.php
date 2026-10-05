@@ -25,6 +25,7 @@ use Throwable;
 class AlumniService
 {
     protected $alumniRepository;
+
     protected $studentRepository;
 
     public function __construct(
@@ -60,12 +61,12 @@ class AlumniService
     public function getById(string $id, bool $activeOnly = true): ?array
     {
         $row = $this->alumniRepository->findById($id);
-        if (!$row) {
+        if (! $row) {
             return null;
         }
 
         $row = $this->withPhoto($this->asArray($row));
-        if ($activeOnly && !$this->isActive($row)) {
+        if ($activeOnly && ! $this->isActive($row)) {
             return null;
         }
 
@@ -80,12 +81,12 @@ class AlumniService
     public function getByStudentId(string $studentId, bool $activeOnly = true): ?array
     {
         $row = $this->alumniRepository->findByStudentId($studentId);
-        if (!$row) {
+        if (! $row) {
             return null;
         }
 
         $row = $this->withPhoto($this->asArray($row));
-        if ($activeOnly && !$this->isActive($row)) {
+        if ($activeOnly && ! $this->isActive($row)) {
             return null;
         }
 
@@ -115,7 +116,8 @@ class AlumniService
             ->filter(fn ($student) => $this->isLegacyStudent($student))
             ->filter(function ($student) use ($registeredStudentIds) {
                 $studentId = strtolower(trim((string) ($student['Student_ID'] ?? '')));
-                return $studentId !== '' && !in_array($studentId, $registeredStudentIds, true);
+
+                return $studentId !== '' && ! in_array($studentId, $registeredStudentIds, true);
             })
             ->map(fn ($student) => $this->makeLegacyRow($this->asArray($student) ?: []))
             ->values();
@@ -123,7 +125,7 @@ class AlumniService
 
     public function legacyById(string $id): ?array
     {
-        if (!str_starts_with(strtoupper(trim($id)), 'LEGACY-')) {
+        if (! str_starts_with(strtoupper(trim($id)), 'LEGACY-')) {
             return null;
         }
 
@@ -161,7 +163,8 @@ class AlumniService
         return $students
             ->filter(function ($student) use ($existingStudentIds) {
                 $id = strtolower(trim((string) ($student['Student_ID'] ?? '')));
-                return $id !== '' && !in_array($id, $existingStudentIds, true);
+
+                return $id !== '' && ! in_array($id, $existingStudentIds, true);
             })
             ->sortBy('Full_Name')
             ->values();
@@ -182,6 +185,7 @@ class AlumniService
             $cached = Cache::get($cacheKey);
             if (is_array($cached)) {
                 $this->assertSameIdempotentPayload($cached, $fingerprint);
+
                 return $this->asArray($cached['record'] ?? []);
             }
         }
@@ -196,6 +200,7 @@ class AlumniService
                 $cached = Cache::get($cacheKey);
                 if (is_array($cached)) {
                     $this->assertSameIdempotentPayload($cached, $fingerprint);
+
                     return $this->asArray($cached['record'] ?? []);
                 }
             }
@@ -209,11 +214,11 @@ class AlumniService
                 }
 
                 $student = $this->asArray($this->studentRepository->findById($studentId));
-                if (!$student) {
+                if (! $student) {
                     throw new InvalidArgumentException('Siswa WMS yang dipilih tidak ditemukan.');
                 }
 
-                if (!SheetValue::isOperationalStudent($student)) {
+                if (! SheetValue::isOperationalStudent($student)) {
                     throw new InvalidArgumentException('Siswa WMS sudah nonaktif/alumni dan tidak tersedia untuk konversi baru.');
                 }
             }
@@ -234,10 +239,12 @@ class AlumniService
                 'Parent_Name' => $normalized['Parent_Name'],
                 'Indonesia_Address' => $normalized['Indonesia_Address'],
                 'Visa_Number' => $normalized['Visa_Number'],
+                'Visa_Type' => $normalized['Visa_Type'],
                 'Japan_City' => $normalized['Japan_City'],
                 'Departure_Date' => $normalized['Departure_Date'],
                 'Photo' => $photoPath ?? '',
                 'Program_ID' => $normalized['Program_ID'],
+                'Pathway' => $normalized['Pathway'],
                 'Batch_ID' => $normalized['Batch_ID'],
                 'Class_ID' => $normalized['Class_ID'],
                 'Status' => 'ALUMNI',
@@ -252,7 +259,7 @@ class AlumniService
             try {
                 $this->alumniRepository->create($row);
                 $persistedAlumni = $this->freshAlumni($alumniId);
-                if (!$persistedAlumni || strcasecmp((string) ($persistedAlumni['Alumni_ID'] ?? ''), $alumniId) !== 0) {
+                if (! $persistedAlumni || strcasecmp((string) ($persistedAlumni['Alumni_ID'] ?? ''), $alumniId) !== 0) {
                     throw new RuntimeException('Data Alumni berhasil ditulis tetapi belum dapat diverifikasi.');
                 }
 
@@ -265,7 +272,7 @@ class AlumniService
                     ];
                     $this->studentRepository->update($normalized['Student_ID'], $studentUpdate);
                     $studentAfter = $this->freshStudent($normalized['Student_ID']);
-                    if (!$studentAfter
+                    if (! $studentAfter
                         || strtoupper(trim((string) ($studentAfter['Is_Active'] ?? 'TRUE'))) !== 'FALSE'
                         || strtolower(trim((string) ($studentAfter['Enrollment_Status'] ?? ''))) !== 'alumni') {
                         throw new RuntimeException('Status Student berhasil ditulis tetapi belum dapat diverifikasi.');
@@ -335,13 +342,13 @@ class AlumniService
 
         return Cache::lock('alumni_registry_write_lock', 120)->block(15, function () use ($id, $data, $actor) {
             $existing = $this->getById($id, false);
-            if (!$existing) {
+            if (! $existing) {
                 throw new RuntimeException('Data Alumni tidak ditemukan.');
             }
 
             $source = $this->normalizeSource($existing['Source_Type'] ?? '');
             $linkedStudent = null;
-            if ($source === 'WMS' && !empty($existing['Student_ID'])) {
+            if ($source === 'WMS' && ! empty($existing['Student_ID'])) {
                 $linkedStudent = $this->asArray($this->studentRepository->findById((string) $existing['Student_ID']));
             }
             $payload = $this->normalizePayload($data, $source, $linkedStudent, $existing);
@@ -361,8 +368,10 @@ class AlumniService
                 'Parent_Name' => $payload['Parent_Name'],
                 'Indonesia_Address' => $payload['Indonesia_Address'],
                 'Visa_Number' => $payload['Visa_Number'],
+                'Visa_Type' => $payload['Visa_Type'],
                 'Japan_City' => $payload['Japan_City'],
                 'Departure_Date' => $payload['Departure_Date'],
+                'Pathway' => $payload['Pathway'],
                 'Status' => 'ALUMNI',
                 'Updated_At' => now()->toDateTimeString(),
                 'Updated_By' => $actor,
@@ -375,7 +384,7 @@ class AlumniService
             try {
                 $this->alumniRepository->update($id, $update);
                 $persisted = $this->freshAlumni($id);
-                if (!$persisted || strcasecmp((string) ($persisted['Alumni_ID'] ?? ''), (string) $id) !== 0) {
+                if (! $persisted || strcasecmp((string) ($persisted['Alumni_ID'] ?? ''), (string) $id) !== 0) {
                     throw new RuntimeException('Perubahan Alumni belum dapat diverifikasi.');
                 }
             } catch (Throwable $e) {
@@ -392,6 +401,7 @@ class AlumniService
 
             $record = $this->withPhoto($persisted);
             $this->dispatchEvent('UPDATE', (string) $id, $actor, $record);
+
             return $record;
         });
     }
@@ -407,7 +417,7 @@ class AlumniService
 
         return Cache::lock('alumni_registry_write_lock', 120)->block(15, function () use ($id, $actor) {
             $existing = $this->getById($id, false);
-            if (!$existing) {
+            if (! $existing) {
                 throw new RuntimeException('Data Alumni tidak ditemukan.');
             }
 
@@ -417,7 +427,7 @@ class AlumniService
                 'Updated_By' => $actor,
             ]);
             $persisted = $this->freshAlumni($id);
-            if (!$persisted || $this->isActive($persisted)) {
+            if (! $persisted || $this->isActive($persisted)) {
                 throw new RuntimeException('Data Alumni belum dapat dinonaktifkan.');
             }
 
@@ -469,11 +479,13 @@ class AlumniService
             'Parent_Name' => trim((string) ($data['Parent_Name'] ?? ($isWms ? $studentParent : null) ?? $existing['Parent_Name'] ?? '')),
             'Indonesia_Address' => trim((string) ($data['Indonesia_Address'] ?? ($isWms ? $studentAddress : null) ?? $existing['Indonesia_Address'] ?? '')),
             'Visa_Number' => trim((string) ($data['Visa_Number'] ?? $existing['Visa_Number'] ?? '')),
+            'Visa_Type' => trim((string) ($data['Visa_Type'] ?? $existing['Visa_Type'] ?? '')),
             'Japan_City' => trim((string) ($data['Japan_City'] ?? $existing['Japan_City'] ?? '')),
             'Departure_Date' => $this->normalizeDepartureDate($data['Departure_Date'] ?? $existing['Departure_Date'] ?? ''),
             'Program_ID' => $isWms
                 ? trim((string) ($student['Program_ID'] ?? $existing['Program_ID'] ?? ''))
                 : trim((string) ($existing['Program_ID'] ?? '')),
+            'Pathway' => $this->normalizePathway($data['Pathway'] ?? $existing['Pathway'] ?? ''),
             'Batch_ID' => $isWms
                 ? trim((string) ($student['Batch_ID'] ?? $existing['Batch_ID'] ?? ''))
                 : trim((string) ($existing['Batch_ID'] ?? '')),
@@ -491,6 +503,8 @@ class AlumniService
             'Parent_Name' => 'Nama orang tua',
             'Indonesia_Address' => 'Alamat lengkap di Indonesia',
             'Visa_Number' => 'Nomor Visa',
+            'Visa_Type' => 'Jenis Visa',
+            'Pathway' => 'Jalur',
             'Japan_City' => 'Kota di Jepang',
             'Departure_Date' => 'Tanggal keberangkatan',
         ];
@@ -506,6 +520,9 @@ class AlumniService
         }
         if (mb_strlen((string) $payload['NIK']) > 50) {
             throw new InvalidArgumentException('NIK maksimal 50 karakter.');
+        }
+        if (mb_strlen((string) $payload['Visa_Type']) > 100) {
+            throw new InvalidArgumentException('Jenis Visa maksimal 100 karakter.');
         }
         if (mb_strlen((string) $payload['Parent_Name']) > 150) {
             throw new InvalidArgumentException('Nama orang tua maksimal 150 karakter.');
@@ -584,7 +601,7 @@ class AlumniService
         );
 
         return $this->withPhoto([
-            'Alumni_ID' => 'LEGACY-' . $studentId,
+            'Alumni_ID' => 'LEGACY-'.$studentId,
             'Source_Type' => 'LEGACY',
             'Source_Label' => 'Legacy WMS',
             'Is_Legacy' => true,
@@ -594,10 +611,12 @@ class AlumniService
             'Parent_Name' => $parent,
             'Indonesia_Address' => $address,
             'Visa_Number' => '',
+            'Visa_Type' => '',
             'Japan_City' => '',
             'Departure_Date' => '',
             'Photo' => '',
             'Program_ID' => $student['Program_ID'] ?? '',
+            'Pathway' => '',
             'Batch_ID' => $student['Batch_ID'] ?? '',
             'Class_ID' => $student['Class_ID'] ?? '',
             'Status' => 'LEGACY',
@@ -612,11 +631,22 @@ class AlumniService
     protected function normalizeSource($source): string
     {
         $source = strtoupper(trim((string) $source));
+
         return match ($source) {
             'WMS', 'STUDENT', 'DARI SISWA WMS', 'DARI SISWA' => 'WMS',
             'MANUAL', 'INPUT MANUAL', 'DARI INPUT MANUAL' => 'MANUAL',
             default => throw new InvalidArgumentException('Sumber Alumni harus WMS atau Input Manual.'),
         };
+    }
+
+    protected function normalizePathway(mixed $pathway): string
+    {
+        $pathway = strtoupper(trim((string) $pathway));
+        if (! in_array($pathway, ['TG', 'MAGANG'], true)) {
+            throw new InvalidArgumentException('Jalur harus Tokutei Ginou (TG) atau Magang.');
+        }
+
+        return $pathway;
     }
 
     protected function firstFilled(...$values): string
@@ -640,8 +670,8 @@ class AlumniService
 
         try {
             $date = Carbon::createFromFormat('Y-m-d', $value, config('app.timezone', 'Asia/Jakarta'));
-            if (!$date || $date->format('Y-m-d') !== $value) {
-                throw new RuntimeException();
+            if (! $date || $date->format('Y-m-d') !== $value) {
+                throw new RuntimeException;
             }
         } catch (Throwable $e) {
             throw new InvalidArgumentException('Tanggal keberangkatan harus menggunakan format YYYY-MM-DD.');
@@ -677,18 +707,18 @@ class AlumniService
         $mime = strtolower((string) $file->getMimeType());
         $size = (int) ($file->getSize() ?? 0);
         $maxBytes = ((int) config('upload.max_kb', 5120)) * 1024;
-        if (!$file->isValid() || !isset($mimeToExtension[$mime]) || $size <= 0 || $size > $maxBytes) {
+        if (! $file->isValid() || ! isset($mimeToExtension[$mime]) || $size <= 0 || $size > $maxBytes) {
             throw new InvalidArgumentException('Foto harus JPG, PNG, atau WEBP dan berukuran maksimal 5MB.');
         }
 
-        $filename = 'alumni_' . preg_replace('/[^A-Za-z0-9_-]/', '', $alumniId)
-            . '_' . Str::lower(Str::random(16)) . '.' . $mimeToExtension[$mime];
+        $filename = 'alumni_'.preg_replace('/[^A-Za-z0-9_-]/', '', $alumniId)
+            .'_'.Str::lower(Str::random(16)).'.'.$mimeToExtension[$mime];
         $stored = $file->storeAs('profiles', $filename, 'public');
-        if (!$stored || !Storage::disk('public')->exists($stored)) {
+        if (! $stored || ! Storage::disk('public')->exists($stored)) {
             throw new RuntimeException('Foto Alumni gagal diunggah.');
         }
 
-        return 'storage/' . ltrim(str_replace('\\', '/', $stored), '/');
+        return 'storage/'.ltrim(str_replace('\\', '/', $stored), '/');
     }
 
     protected function findStudentPhotoPath(string $studentId): ?string
@@ -699,8 +729,8 @@ class AlumniService
         }
 
         foreach (Storage::disk('public')->files('profiles') as $path) {
-            if (preg_match('/^student_' . preg_quote($studentId, '/') . '\.(?:jpe?g|png|webp)$/i', basename($path))) {
-                return 'storage/' . ltrim(str_replace('\\', '/', $path), '/');
+            if (preg_match('/^student_'.preg_quote($studentId, '/').'\.(?:jpe?g|png|webp)$/i', basename($path))) {
+                return 'storage/'.ltrim(str_replace('\\', '/', $path), '/');
             }
         }
 
@@ -715,17 +745,19 @@ class AlumniService
     protected function freshStudent(string $id): ?array
     {
         $this->studentRepository->clearCache();
+
         return $this->asArray($this->studentRepository->findById($id));
     }
 
     protected function withPhoto(array $row): array
     {
         $photo = $this->normalizePhotoPath($row['Photo'] ?? '');
-        if ($photo === null && !empty($row['Student_ID'])) {
+        if ($photo === null && ! empty($row['Student_ID'])) {
             $photo = $this->normalizePhotoPath($this->findStudentPhotoPath((string) $row['Student_ID']));
         }
-        $row['Photo'] = $photo ? 'storage/' . $photo : (string) ($row['Photo'] ?? '');
+        $row['Photo'] = $photo ? 'storage/'.$photo : (string) ($row['Photo'] ?? '');
         $row['Photo_URL'] = $photo ? Storage::disk('public')->url($photo) : null;
+
         return $row;
     }
 
@@ -738,9 +770,10 @@ class AlumniService
         if (str_starts_with($path, 'storage/')) {
             $path = substr($path, strlen('storage/'));
         }
-        if (!str_starts_with($path, 'profiles/') || !Storage::disk('public')->exists($path)) {
+        if (! str_starts_with($path, 'profiles/') || ! Storage::disk('public')->exists($path)) {
             return null;
         }
+
         return $path;
     }
 
@@ -763,6 +796,7 @@ class AlumniService
     protected function isActive($row): bool
     {
         $row = $this->asArray($row) ?: [];
+
         return strtoupper(trim((string) ($row['Is_Active'] ?? 'TRUE'))) !== 'FALSE';
     }
 
@@ -782,6 +816,7 @@ class AlumniService
         if (is_object($row) && method_exists($row, 'toArray')) {
             return $row->toArray();
         }
+
         return (array) $row;
     }
 
@@ -791,7 +826,8 @@ class AlumniService
         if ($key === '') {
             return null;
         }
-        return 'alumni_idempotency_' . hash('sha256', $actor . '|' . $key);
+
+        return 'alumni_idempotency_'.hash('sha256', $actor.'|'.$key);
     }
 
     protected function fingerprint(array $data): string
@@ -804,6 +840,7 @@ class AlumniService
                     'size' => $value->getSize(),
                     'original' => $value->getClientOriginalName(),
                 ];
+
                 continue;
             }
             if (is_scalar($value) || $value === null) {
@@ -811,6 +848,7 @@ class AlumniService
             }
         }
         ksort($normalized);
+
         return hash('sha256', json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 

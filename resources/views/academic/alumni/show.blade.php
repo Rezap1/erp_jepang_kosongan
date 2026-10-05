@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $isActive = strtoupper((string) ($student['Is_Active'] ?? 'TRUE')) !== 'FALSE';
+    $isActive = \App\Helpers\SheetValue::isActive((array) $student);
     $isLegacy = !empty($student['Is_Legacy']);
     $isWms = strtoupper((string) ($student['Source_Type'] ?? '')) === 'WMS';
     $initial = strtoupper(substr(trim((string) ($student['Full_Name'] ?? 'A')), 0, 1));
@@ -41,7 +41,9 @@
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">NIK</dt><dd class="mt-1 font-mono text-slate-800">{{ filled($student['NIK'] ?? $student['National_ID'] ?? null) ? ($student['NIK'] ?? $student['National_ID']) : 'Belum diisi' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Nama orang tua</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Parent_Name'] ?? null) ? $student['Parent_Name'] : 'Belum diisi' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Nomor Visa</dt><dd class="mt-1 font-mono text-slate-800">{{ filled($student['Visa_Number'] ?? null) ? $student['Visa_Number'] : 'Belum diisi' }}</dd></div>
-                    <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Kota di Jepang</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Japan_City'] ?? null) ? $student['Japan_City'] : 'Belum diisi' }}</dd></div>
+                    <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Jenis Visa</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Visa_Type'] ?? null) ? $student['Visa_Type'] : 'Belum tersedia' }}</dd></div>
+                    <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Jalur</dt><dd class="mt-1 font-semibold text-indigo-700">{{ $student['Pathway_Label'] ?? 'Belum diketahui' }}</dd></div>
+                    <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Wilayah Kerja</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Work_Region'] ?? null) ? $student['Work_Region'] : 'Belum tersedia' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Tanggal keberangkatan</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Departure_Date'] ?? null) ? $student['Departure_Date'] : 'Belum diisi' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Email</dt><dd class="mt-1 break-all text-slate-800">{{ $student['Email'] ?? '-' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Nomor telepon</dt><dd class="mt-1 text-slate-800">{{ $student['Phone_Number'] ?? '-' }}</dd></div>

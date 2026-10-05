@@ -32,21 +32,23 @@ class AlumniServiceTest extends TestCase
 
     public function test_manual_registration_does_not_create_or_update_student(): void
     {
-        $alumni = new InMemoryAlumniRepository();
-        $students = new InMemoryStudentRepository();
+        $alumni = new InMemoryAlumniRepository;
+        $students = new InMemoryStudentRepository;
         $service = new AlumniService($alumni, $students);
 
         $record = $service->create($this->manualPayload());
 
         $this->assertSame('MANUAL', $record['Source_Type']);
         $this->assertSame('', $record['Student_ID']);
+        $this->assertSame('Specified Skilled Worker', $record['Visa_Type']);
+        $this->assertSame('TG', $record['Pathway']);
         $this->assertSame(0, $students->updateCalls);
         $this->assertSame(0, $students->findByIdCalls);
     }
 
     public function test_wms_registration_is_coordinated_and_deactivates_student(): void
     {
-        $alumni = new InMemoryAlumniRepository();
+        $alumni = new InMemoryAlumniRepository;
         $students = new InMemoryStudentRepository([
             $this->studentRow('STD000001'),
         ]);
@@ -70,7 +72,7 @@ class AlumniServiceTest extends TestCase
 
     public function test_wms_parent_address_and_missing_nik_can_be_completed_at_conversion(): void
     {
-        $alumni = new InMemoryAlumniRepository();
+        $alumni = new InMemoryAlumniRepository;
         $students = new InMemoryStudentRepository([
             array_merge($this->studentRow('STD000001'), [
                 'National_ID' => '',
@@ -85,6 +87,8 @@ class AlumniServiceTest extends TestCase
             'Student_ID' => 'STD000001',
             'NIK' => '3170000000000099',
             'Visa_Number' => 'VISA-099',
+            'Visa_Type' => 'Technical Intern Training',
+            'Pathway' => 'MAGANG',
             'Japan_City' => 'Osaka',
             'Departure_Date' => now()->format('Y-m-d'),
         ]);
@@ -96,7 +100,7 @@ class AlumniServiceTest extends TestCase
 
     public function test_duplicate_active_student_is_rejected(): void
     {
-        $alumni = new InMemoryAlumniRepository();
+        $alumni = new InMemoryAlumniRepository;
         $students = new InMemoryStudentRepository([$this->studentRow('STD000001')]);
         $service = new AlumniService($alumni, $students);
         $payload = array_merge($this->manualPayload(), [
@@ -111,8 +115,8 @@ class AlumniServiceTest extends TestCase
 
     public function test_future_departure_date_is_rejected_before_any_write(): void
     {
-        $alumni = new InMemoryAlumniRepository();
-        $students = new InMemoryStudentRepository();
+        $alumni = new InMemoryAlumniRepository;
+        $students = new InMemoryStudentRepository;
         $service = new AlumniService($alumni, $students);
 
         try {
@@ -127,8 +131,8 @@ class AlumniServiceTest extends TestCase
 
     public function test_same_idempotency_key_returns_the_same_record_once(): void
     {
-        $alumni = new InMemoryAlumniRepository();
-        $students = new InMemoryStudentRepository();
+        $alumni = new InMemoryAlumniRepository;
+        $students = new InMemoryStudentRepository;
         $service = new AlumniService($alumni, $students);
         $payload = $this->manualPayload();
 
@@ -141,8 +145,8 @@ class AlumniServiceTest extends TestCase
 
     public function test_deactivate_only_soft_deletes_alumni_row(): void
     {
-        $alumni = new InMemoryAlumniRepository();
-        $students = new InMemoryStudentRepository();
+        $alumni = new InMemoryAlumniRepository;
+        $students = new InMemoryStudentRepository;
         $service = new AlumniService($alumni, $students);
         $record = $service->create($this->manualPayload());
 
@@ -153,7 +157,7 @@ class AlumniServiceTest extends TestCase
 
     public function test_student_service_does_not_classify_lulus_as_alumni_without_registry(): void
     {
-        $alumni = new InMemoryAlumniRepository();
+        $alumni = new InMemoryAlumniRepository;
         $students = new InMemoryStudentRepository([
             array_merge($this->studentRow('STD000001'), ['Graduation_Status' => 'Lulus']),
         ]);
@@ -171,7 +175,7 @@ class AlumniServiceTest extends TestCase
 
     public function test_process_graduation_no_longer_deactivates_or_sets_alumni_status(): void
     {
-        $alumni = new InMemoryAlumniRepository();
+        $alumni = new InMemoryAlumniRepository;
         $students = new InMemoryStudentRepository([
             $this->studentRow('STD000001'),
         ]);
@@ -193,6 +197,8 @@ class AlumniServiceTest extends TestCase
             'Parent_Name' => 'Orang Tua',
             'Indonesia_Address' => 'Jl. Contoh No. 1',
             'Visa_Number' => 'VISA-001',
+            'Visa_Type' => 'Specified Skilled Worker',
+            'Pathway' => 'TG',
             'Japan_City' => 'Tokyo',
             'Departure_Date' => now()->format('Y-m-d'),
         ];
@@ -235,49 +241,123 @@ class InMemoryAlumniRepository implements AlumniRepositoryInterface
 {
     public array $rows = [];
 
-    public function fetchAll() { return collect($this->rows); }
-    public function fetchAllFresh() { return collect($this->rows); }
-    public function findById(string $id) { return collect($this->rows)->firstWhere('Alumni_ID', $id); }
-    public function findByIdFresh(string $id) { return $this->findById($id); }
-    public function findByStudentId(string $studentId) { return collect($this->rows)->firstWhere('Student_ID', $studentId); }
-    public function generateNewId(string $prefix = 'ALM', int $padding = 6): string { return $prefix . str_pad((string) (count($this->rows) + 1), $padding, '0', STR_PAD_LEFT); }
-    public function create(array $data) { $this->rows[] = $data; return $data; }
-    public function update(string $id, array $data) {
+    public function fetchAll()
+    {
+        return collect($this->rows);
+    }
+
+    public function fetchAllFresh()
+    {
+        return collect($this->rows);
+    }
+
+    public function findById(string $id)
+    {
+        return collect($this->rows)->firstWhere('Alumni_ID', $id);
+    }
+
+    public function findByIdFresh(string $id)
+    {
+        return $this->findById($id);
+    }
+
+    public function findByStudentId(string $studentId)
+    {
+        return collect($this->rows)->firstWhere('Student_ID', $studentId);
+    }
+
+    public function generateNewId(string $prefix = 'ALM', int $padding = 6): string
+    {
+        return $prefix.str_pad((string) (count($this->rows) + 1), $padding, '0', STR_PAD_LEFT);
+    }
+
+    public function create(array $data)
+    {
+        $this->rows[] = $data;
+
+        return $data;
+    }
+
+    public function update(string $id, array $data)
+    {
         foreach ($this->rows as &$row) {
             if ($row['Alumni_ID'] === $id) {
                 $row = array_merge($row, $data);
             }
         }
+
         return true;
     }
-    public function softDelete(string $id) { return $this->update($id, ['Is_Active' => 'FALSE']); }
+
+    public function softDelete(string $id)
+    {
+        return $this->update($id, ['Is_Active' => 'FALSE']);
+    }
 }
 
 class InMemoryStudentRepository implements StudentRepositoryInterface
 {
     public array $rows;
+
     public int $updateCalls = 0;
+
     public int $findByIdCalls = 0;
 
-    public function __construct(array $rows = []) { $this->rows = $rows; }
-    public function fetchAll() { return collect($this->rows); }
-    public function findById(string $id) {
+    public function __construct(array $rows = [])
+    {
+        $this->rows = $rows;
+    }
+
+    public function fetchAll()
+    {
+        return collect($this->rows);
+    }
+
+    public function findById(string $id)
+    {
         $this->findByIdCalls++;
+
         return collect($this->rows)->firstWhere('Student_ID', $id);
     }
-    public function findByStudentNumber(string $number) { return collect($this->rows)->firstWhere('Student_Number', $number); }
-    public function findByNationalId(string $nationalId) { return collect($this->rows)->firstWhere('National_ID', $nationalId); }
-    public function generateNewId(string $prefix, int $padding = 6): string { return $prefix . str_pad('1', $padding, '0', STR_PAD_LEFT); }
-    public function create(array $data) { $this->rows[] = $data; return $data; }
-    public function update(string $id, array $data) {
+
+    public function findByStudentNumber(string $number)
+    {
+        return collect($this->rows)->firstWhere('Student_Number', $number);
+    }
+
+    public function findByNationalId(string $nationalId)
+    {
+        return collect($this->rows)->firstWhere('National_ID', $nationalId);
+    }
+
+    public function generateNewId(string $prefix, int $padding = 6): string
+    {
+        return $prefix.str_pad('1', $padding, '0', STR_PAD_LEFT);
+    }
+
+    public function create(array $data)
+    {
+        $this->rows[] = $data;
+
+        return $data;
+    }
+
+    public function update(string $id, array $data)
+    {
         $this->updateCalls++;
         foreach ($this->rows as &$row) {
             if ($row['Student_ID'] === $id) {
                 $row = array_merge($row, $data);
             }
         }
+
         return true;
     }
-    public function softDelete(string $id) { return $this->update($id, ['Is_Active' => 'FALSE']); }
+
+    public function softDelete(string $id)
+    {
+        return $this->update($id, ['Is_Active' => 'FALSE']);
+    }
+
     public function clearCache() {}
 }
