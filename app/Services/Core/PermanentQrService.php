@@ -318,13 +318,19 @@ class PermanentQrService
             throw new InvalidArgumentException('Tanggal dan waktu masa berlaku QR wajib diisi.');
         }
 
+        $format = match (true) {
+            preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/D', $value) === 1 => 'Y-m-d H:i:s',
+            preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/D', $value) === 1 => 'Y-m-d H:i:s.u',
+            default => throw new InvalidArgumentException('Tanggal atau waktu masa berlaku QR tidak valid.'),
+        };
+
         try {
-            $dateTime = CarbonImmutable::createFromFormat('!Y-m-d H:i:s', $value, self::TIMEZONE);
+            $dateTime = CarbonImmutable::createFromFormat('!'.$format, $value, self::TIMEZONE);
         } catch (\Throwable $exception) {
             throw new InvalidArgumentException('Tanggal atau waktu masa berlaku QR tidak valid.', 0, $exception);
         }
 
-        if (! $dateTime || $dateTime->format('Y-m-d H:i:s') !== $value) {
+        if (! $dateTime || $dateTime->format($format) !== $value) {
             throw new InvalidArgumentException('Tanggal atau waktu masa berlaku QR tidak valid.');
         }
 
