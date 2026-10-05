@@ -6,6 +6,7 @@
     <testsuites>
         <testsuite name="M2 MySQL Integration">
             <file>tests/Feature/M2MySqlRuntimePersistenceTest.php</file>
+            <file>tests/Feature/AlumniWorkFieldMySqlTest.php</file>
         </testsuite>
     </testsuites>
     <source>

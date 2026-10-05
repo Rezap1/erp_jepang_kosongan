@@ -50,6 +50,25 @@ class AlumniService
         return $this->all();
     }
 
+    /** @param list<string> $ids */
+    public function selectedByIds(array $ids): Collection
+    {
+        $requested = collect($ids)
+            ->map(fn ($id): string => strtoupper(trim((string) $id)))
+            ->filter()
+            ->unique()
+            ->values();
+        $rows = collect($this->alumniRepository->fetchAllFresh())
+            ->map(fn ($row): array => $this->withPhoto($this->asArray($row)))
+            ->keyBy(fn (array $row): string => strtoupper(trim((string) ($row['Alumni_ID'] ?? ''))));
+        $missing = $requested->reject(fn (string $id): bool => $rows->has($id));
+        if ($missing->isNotEmpty()) {
+            throw new InvalidArgumentException('Satu atau lebih Alumni yang dipilih tidak ditemukan.');
+        }
+
+        return $requested->map(fn (string $id): array => $rows->get($id))->values();
+    }
+
     public function allIncludingInactive(): Collection
     {
         return collect($this->alumniRepository->fetchAll())
@@ -245,6 +264,7 @@ class AlumniService
                 'Photo' => $photoPath ?? '',
                 'Program_ID' => $normalized['Program_ID'],
                 'Pathway' => $normalized['Pathway'],
+                'Work_Field' => $normalized['Work_Field'],
                 'Batch_ID' => $normalized['Batch_ID'],
                 'Class_ID' => $normalized['Class_ID'],
                 'Status' => 'ALUMNI',
@@ -372,6 +392,7 @@ class AlumniService
                 'Japan_City' => $payload['Japan_City'],
                 'Departure_Date' => $payload['Departure_Date'],
                 'Pathway' => $payload['Pathway'],
+                'Work_Field' => $payload['Work_Field'],
                 'Status' => 'ALUMNI',
                 'Updated_At' => now()->toDateTimeString(),
                 'Updated_By' => $actor,
@@ -486,6 +507,7 @@ class AlumniService
                 ? trim((string) ($student['Program_ID'] ?? $existing['Program_ID'] ?? ''))
                 : trim((string) ($existing['Program_ID'] ?? '')),
             'Pathway' => $this->normalizePathway($data['Pathway'] ?? $existing['Pathway'] ?? ''),
+            'Work_Field' => trim((string) ($data['Work_Field'] ?? $existing['Work_Field'] ?? '')),
             'Batch_ID' => $isWms
                 ? trim((string) ($student['Batch_ID'] ?? $existing['Batch_ID'] ?? ''))
                 : trim((string) ($existing['Batch_ID'] ?? '')),
@@ -523,6 +545,9 @@ class AlumniService
         }
         if (mb_strlen((string) $payload['Visa_Type']) > 100) {
             throw new InvalidArgumentException('Jenis Visa maksimal 100 karakter.');
+        }
+        if (mb_strlen((string) ($payload['Work_Field'] ?? '')) > 150) {
+            throw new InvalidArgumentException('Bidang Pekerjaan maksimal 150 karakter.');
         }
         if (mb_strlen((string) $payload['Parent_Name']) > 150) {
             throw new InvalidArgumentException('Nama orang tua maksimal 150 karakter.');
@@ -617,6 +642,7 @@ class AlumniService
             'Photo' => '',
             'Program_ID' => $student['Program_ID'] ?? '',
             'Pathway' => '',
+            'Work_Field' => '',
             'Batch_ID' => $student['Batch_ID'] ?? '',
             'Class_ID' => $student['Class_ID'] ?? '',
             'Status' => 'LEGACY',

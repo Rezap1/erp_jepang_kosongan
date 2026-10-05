@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Academic;
 use App\Helpers\CollectionHelper;
 use App\Helpers\SheetValue;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ExportSelectedAlumniPdfRequest;
 use App\Http\Requests\StoreAlumniRequest;
 use App\Http\Requests\UpdateAlumniRequest;
 use App\Interfaces\GoogleSheets\DocumentRepositoryInterface;
@@ -15,9 +16,12 @@ use App\Services\Core\BatchService;
 use App\Services\Core\ClassService;
 use App\Services\Core\ProgramService;
 use App\Services\Core\StudentService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Throwable;
 
 class AlumniController extends Controller
@@ -62,6 +66,7 @@ class AlumniController extends Controller
                 'source',
                 'pathway',
                 'visa_type',
+                'work_field',
                 'region',
                 'departure_year',
                 'status',
@@ -79,6 +84,7 @@ class AlumniController extends Controller
                 'batches' => collect(),
                 'classes' => collect(),
                 'visaTypes' => collect(),
+                'workFields' => collect(),
                 'regions' => collect(),
             ];
         }
@@ -101,6 +107,7 @@ class AlumniController extends Controller
                 'source',
                 'pathway',
                 'visa_type',
+                'work_field',
                 'region',
                 'departure_year',
                 'status',
@@ -128,6 +135,7 @@ class AlumniController extends Controller
                 'Status',
                 'Jenis Visa',
                 'Jalur',
+                'Bidang Pekerjaan',
                 'Wilayah Kerja',
             ]);
             foreach ($rows as $row) {
@@ -144,11 +152,46 @@ class AlumniController extends Controller
                     $isLegacy ? 'Legacy' : (SheetValue::isActive((array) $row) ? 'Aktif' : 'Nonaktif'),
                     $row['Visa_Type'] ?? '',
                     $row['Pathway_Label'] ?? '',
+                    $row['Work_Field'] ?? '',
                     $row['Work_Region'] ?? '',
                 ]);
             }
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function exportSelectedPdf(ExportSelectedAlumniPdfRequest $request)
+    {
+        $ids = collect($request->validated('alumni_ids'))
+            ->map(fn ($id): string => strtoupper(trim((string) $id)))
+            ->unique()
+            ->values()
+            ->all();
+
+        try {
+            $alumni = $this->alumniDirectoryService->selectedProfiles($ids);
+        } catch (InvalidArgumentException) {
+            throw ValidationException::withMessages([
+                'alumni_ids' => 'Satu atau lebih Alumni yang dipilih tidak ditemukan. Silakan muat ulang halaman.',
+            ]);
+        }
+
+        $filename = count($ids) === 1
+            ? 'alumni-'.$ids[0].'.pdf'
+            : 'data-alumni-terpilih-'.now('Asia/Jakarta')->format('Y-m-d').'.pdf';
+        $pdf = Pdf::loadView('pdf.selected_alumni', [
+            'alumni' => $alumni,
+            'exportedAt' => now('Asia/Jakarta'),
+        ])->setPaper('A4', 'portrait');
+        $pdf->getDomPDF()->getOptions()->set([
+            'defaultFont' => 'DejaVu Sans',
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => false,
+        ]);
+        $pdf->getDomPDF()->addInfo('Title', 'Data Alumni Terpilih');
+        $pdf->getDomPDF()->addInfo('Author', 'Wakamiya Management System');
+
+        return $pdf->download($filename);
     }
 
     public function create(Request $request)

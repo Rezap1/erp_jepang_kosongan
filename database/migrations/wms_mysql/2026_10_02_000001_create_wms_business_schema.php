@@ -24,6 +24,7 @@ return new class extends Migration
                     $definition = match (WmsMigrationManifest::columnType($column)) {
                         'identifier' => $table->string($column, 191),
                         'short_string' => $table->string($column, 512),
+                        'work_field' => $table->string($column, 150),
                         'decimal' => $table->decimal($column, 20, 4),
                         'integer' => $table->bigInteger($column),
                         'boolean' => $table->boolean($column),

@@ -83,6 +83,10 @@
                     </select>
                 </label>
                 <label class="block">
+                    <span class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Bidang Pekerjaan</span>
+                    <input type="text" name="Work_Field" value="{{ old('Work_Field', $alumni['Work_Field'] ?? '') }}" maxlength="150" placeholder="Masukkan bidang pekerjaan" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                </label>
+                <label class="block">
                     <span class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Kota di Jepang <span class="text-rose-600">*</span></span>
                     <input type="text" name="Japan_City" value="{{ old('Japan_City', $alumni['Japan_City'] ?? '') }}" required class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </label>

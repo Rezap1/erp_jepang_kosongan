@@ -229,6 +229,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('academic/alumni')->name('alumni.')->middleware('role:ADMINISTRATOR,ACADEMIC')->group(function () {
         Route::get('/', [AlumniController::class, 'index'])->name('index');
         Route::get('/export-csv', [AlumniController::class, 'exportCsv'])->name('export-csv');
+        Route::post('/export-selected-pdf', [AlumniController::class, 'exportSelectedPdf'])->name('export-selected-pdf');
         Route::get('/create', [AlumniController::class, 'create'])->name('create');
         Route::post('/', [AlumniController::class, 'store'])->name('store');
         Route::get('/{id}/edit', [AlumniController::class, 'edit'])->name('edit');

@@ -42,8 +42,24 @@ class AlumniServiceTest extends TestCase
         $this->assertSame('', $record['Student_ID']);
         $this->assertSame('Specified Skilled Worker', $record['Visa_Type']);
         $this->assertSame('TG', $record['Pathway']);
+        $this->assertSame('Keperawatan Lansia', $record['Work_Field']);
         $this->assertSame(0, $students->updateCalls);
         $this->assertSame(0, $students->findByIdCalls);
+    }
+
+    public function test_work_field_can_be_updated_without_changing_visa_type(): void
+    {
+        $alumni = new InMemoryAlumniRepository;
+        $students = new InMemoryStudentRepository;
+        $service = new AlumniService($alumni, $students);
+        $created = $service->create($this->manualPayload());
+
+        $updated = $service->update((string) $created['Alumni_ID'], array_merge($this->manualPayload(), [
+            'Work_Field' => 'Perhotelan',
+        ]));
+
+        $this->assertSame('Perhotelan', $updated['Work_Field']);
+        $this->assertSame('Specified Skilled Worker', $updated['Visa_Type']);
     }
 
     public function test_wms_registration_is_coordinated_and_deactivates_student(): void
@@ -155,6 +171,29 @@ class AlumniServiceTest extends TestCase
         $this->assertSame(0, $students->updateCalls);
     }
 
+    public function test_selected_pdf_source_requeries_fresh_rows_and_deduplicates_ids(): void
+    {
+        $alumni = new InMemoryAlumniRepository;
+        $alumni->rows = [
+            ['Alumni_ID' => 'ALM000001', 'Full_Name' => 'Akira'],
+            ['Alumni_ID' => 'ALM000002', 'Full_Name' => 'Budi'],
+        ];
+        $service = new AlumniService($alumni, new InMemoryStudentRepository);
+
+        $rows = $service->selectedByIds(['alm000002', 'ALM000002', 'ALM000001']);
+
+        $this->assertSame(['ALM000002', 'ALM000001'], $rows->pluck('Alumni_ID')->all());
+        $this->assertSame(1, $alumni->fetchAllFreshCalls);
+    }
+
+    public function test_selected_pdf_source_rejects_nonexistent_id(): void
+    {
+        $service = new AlumniService(new InMemoryAlumniRepository, new InMemoryStudentRepository);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $service->selectedByIds(['ALM999999']);
+    }
+
     public function test_student_service_does_not_classify_lulus_as_alumni_without_registry(): void
     {
         $alumni = new InMemoryAlumniRepository;
@@ -199,6 +238,7 @@ class AlumniServiceTest extends TestCase
             'Visa_Number' => 'VISA-001',
             'Visa_Type' => 'Specified Skilled Worker',
             'Pathway' => 'TG',
+            'Work_Field' => 'Keperawatan Lansia',
             'Japan_City' => 'Tokyo',
             'Departure_Date' => now()->format('Y-m-d'),
         ];
@@ -241,6 +281,8 @@ class InMemoryAlumniRepository implements AlumniRepositoryInterface
 {
     public array $rows = [];
 
+    public int $fetchAllFreshCalls = 0;
+
     public function fetchAll()
     {
         return collect($this->rows);
@@ -248,6 +290,8 @@ class InMemoryAlumniRepository implements AlumniRepositoryInterface
 
     public function fetchAllFresh()
     {
+        $this->fetchAllFreshCalls++;
+
         return collect($this->rows);
     }
 

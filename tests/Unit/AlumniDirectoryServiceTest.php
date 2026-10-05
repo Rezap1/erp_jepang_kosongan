@@ -62,6 +62,7 @@ class AlumniDirectoryServiceTest extends TestCase
             'class' => 'CLS-1',
             'pathway' => 'TG',
             'visa_type' => 'engineer',
+            'work_field' => 'manufacturing',
             'region' => 'osaka',
             'source' => 'MANUAL',
             'departure_year' => '2026',
@@ -91,6 +92,33 @@ class AlumniDirectoryServiceTest extends TestCase
         $this->assertSame([0, 0], $analytics['pathway_chart']['values']);
         $this->assertSame([], $analytics['region_chart']['labels']);
         $this->assertSame([], $analytics['region_chart']['values']);
+    }
+
+    public function test_single_pathway_datasets_keep_zero_counterpart_without_division_errors(): void
+    {
+        $tgOnly = $this->service([$this->row('ALM-TG', 'TG', '', 'Tokyo')])->directory([])['analytics'];
+        $magangOnly = $this->service([$this->row('ALM-MAGANG', 'MAGANG', '', 'Osaka')])->directory([])['analytics'];
+
+        $this->assertSame([1, 0], $tgOnly['pathway_chart']['values']);
+        $this->assertSame([0, 1], $magangOnly['pathway_chart']['values']);
+    }
+
+    public function test_many_new_and_long_city_names_remain_complete_in_chart_dataset(): void
+    {
+        $service = $this->service([
+            $this->row('ALM-1', 'TG', 'Engineer', 'Tokyo'),
+            $this->row('ALM-2', 'TG', 'Engineer', 'Sapporo'),
+            $this->row('ALM-3', 'MAGANG', 'Intern', 'Kota Dengan Nama Wilayah Penempatan Sangat Panjang'),
+            array_merge($this->row('ALM-4', '', '', ''), ['Work_Field' => '']),
+        ]);
+
+        $result = $service->directory([]);
+
+        $this->assertCount(3, $result['analytics']['region_chart']['labels']);
+        $this->assertContains('Sapporo', $result['analytics']['region_chart']['labels']);
+        $this->assertContains('Kota Dengan Nama Wilayah Penempatan Sangat Panjang', $result['analytics']['region_chart']['labels']);
+        $this->assertSame(1, $result['analytics']['unknown_region']);
+        $this->assertSame(['Caregiver', 'Manufacturing'], $result['workFields']->all());
     }
 
     public function test_directory_paginates_filtered_results_without_changing_totals(): void
@@ -140,6 +168,7 @@ class AlumniDirectoryServiceTest extends TestCase
             'NIK' => 'NIK-'.$id,
             'Visa_Number' => 'VISA-'.$id,
             'Visa_Type' => $visaType,
+            'Work_Field' => $id === 'ALM-3' ? 'Manufacturing' : 'Caregiver',
             'Pathway' => $pathway,
             'Japan_City' => $region,
             'Departure_Date' => '2026-01-15',

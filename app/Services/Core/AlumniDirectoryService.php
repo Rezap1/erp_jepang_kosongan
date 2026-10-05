@@ -25,7 +25,7 @@ class AlumniDirectoryService
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return array{alumni: LengthAwarePaginator, analytics: array<string, mixed>, programs: Collection, batches: Collection, classes: Collection, visaTypes: Collection, regions: Collection}
+     * @return array{alumni: LengthAwarePaginator, analytics: array<string, mixed>, programs: Collection, batches: Collection, classes: Collection, visaTypes: Collection, workFields: Collection, regions: Collection}
      */
     public function directory(array $filters): array
     {
@@ -39,6 +39,7 @@ class AlumniDirectoryService
             'batches' => $this->relationOptions($baseRows, 'Batch_ID', 'Batch_Name'),
             'classes' => $this->relationOptions($baseRows, 'Class_ID', 'Class_Name'),
             'visaTypes' => $this->filterOptions($baseRows, 'Visa_Type'),
+            'workFields' => $this->filterOptions($baseRows, 'Work_Field'),
             'regions' => $this->filterOptions($baseRows, 'Work_Region'),
         ];
     }
@@ -49,6 +50,12 @@ class AlumniDirectoryService
         $rows = $this->rowsForStatus($filters['status'] ?? $defaultStatus);
 
         return $this->applyFilters($rows, $filters);
+    }
+
+    /** @param list<string> $ids */
+    public function selectedProfiles(array $ids): Collection
+    {
+        return $this->enrich($this->alumniService->selectedByIds($ids));
     }
 
     /** @param array<string, mixed> $filters */
@@ -65,6 +72,7 @@ class AlumniDirectoryService
                 'Indonesia_Address',
                 'Visa_Number',
                 'Visa_Type',
+                'Work_Field',
                 'Japan_City',
                 'Pathway_Label',
                 'Program_Name',
@@ -80,6 +88,7 @@ class AlumniDirectoryService
             'source' => 'Source_Type',
             'pathway' => 'Pathway',
             'visa_type' => 'Visa_Type',
+            'work_field' => 'Work_Field',
             'region' => 'Work_Region',
             'departure_year' => 'Departure_Year',
         ];
