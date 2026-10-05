@@ -4,6 +4,7 @@ namespace App\Services\Core;
 
 use App\Helpers\CollectionHelper;
 use App\Helpers\SheetValue;
+use App\Support\AlumniPathway;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -11,9 +12,11 @@ use Throwable;
 
 class AlumniDirectoryService
 {
-    public const PATHWAY_TG = 'TG';
+    public const PATHWAY_TG = AlumniPathway::TG;
 
-    public const PATHWAY_MAGANG = 'MAGANG';
+    public const PATHWAY_MAGANG = AlumniPathway::MAGANG;
+
+    public const PATHWAY_ENGINEER = AlumniPathway::ENGINEER;
 
     public function __construct(
         private readonly AlumniService $alumniService,
@@ -55,7 +58,12 @@ class AlumniDirectoryService
     /** @param list<string> $ids */
     public function selectedProfiles(array $ids): Collection
     {
-        return $this->enrich($this->alumniService->selectedByIds($ids));
+        return $this->enrich($this->alumniService->selectedByIds($ids))
+            ->map(function (array $row): array {
+                $row['Photo_Data_URI'] = $this->alumniService->photoDataUri($row);
+
+                return $row;
+            });
     }
 
     /** @param array<string, mixed> $filters */
@@ -104,11 +112,12 @@ class AlumniDirectoryService
         return $rows->values();
     }
 
-    /** @return array{total: int, tg: int, magang: int, total_regions: int, unknown_pathway: int, unknown_region: int, pathway_chart: array{labels: list<string>, values: list<int>}, region_chart: array{labels: list<string>, values: list<int>}} */
+    /** @return array{total: int, tg: int, magang: int, engineer: int, total_regions: int, unknown_pathway: int, unknown_region: int, pathway_chart: array{labels: list<string>, values: list<int>}, region_chart: array{labels: list<string>, values: list<int>}} */
     public function analytics(Collection $rows): array
     {
         $tg = $rows->where('Pathway', self::PATHWAY_TG)->count();
         $magang = $rows->where('Pathway', self::PATHWAY_MAGANG)->count();
+        $engineer = $rows->where('Pathway', self::PATHWAY_ENGINEER)->count();
         $regions = $rows
             ->filter(fn (array $row): bool => $this->filled($row['Work_Region'] ?? null))
             ->groupBy(fn (array $row): string => $this->normalized($row['Work_Region']))
@@ -125,12 +134,13 @@ class AlumniDirectoryService
             'total' => $rows->count(),
             'tg' => $tg,
             'magang' => $magang,
+            'engineer' => $engineer,
             'total_regions' => $regions->count(),
-            'unknown_pathway' => $rows->count() - $tg - $magang,
+            'unknown_pathway' => $rows->count() - $tg - $magang - $engineer,
             'unknown_region' => $rows->filter(fn (array $row): bool => ! $this->filled($row['Work_Region'] ?? null))->count(),
             'pathway_chart' => [
-                'labels' => ['Tokutei Ginou', 'Magang'],
-                'values' => [$tg, $magang],
+                'labels' => ['Tokutei Ginou (TG)', 'Magang', 'Engineer'],
+                'values' => [$tg, $magang, $engineer],
             ],
             'region_chart' => [
                 'labels' => $regions->pluck('label')->all(),
@@ -151,11 +161,7 @@ class AlumniDirectoryService
 
     public function pathwayLabel(mixed $pathway): string
     {
-        return match ($this->canonicalPathway($pathway)) {
-            self::PATHWAY_TG => 'Tokutei Ginou (TG)',
-            self::PATHWAY_MAGANG => 'Magang',
-            default => 'Belum diketahui',
-        };
+        return AlumniPathway::label($pathway);
     }
 
     protected function rowsForStatus(mixed $status): Collection
@@ -251,9 +257,7 @@ class AlumniDirectoryService
 
     protected function canonicalPathway(mixed $value): ?string
     {
-        $value = strtoupper(trim((string) $value));
-
-        return in_array($value, [self::PATHWAY_TG, self::PATHWAY_MAGANG], true) ? $value : null;
+        return AlumniPathway::normalize($value);
     }
 
     protected function normalized(mixed $value): string

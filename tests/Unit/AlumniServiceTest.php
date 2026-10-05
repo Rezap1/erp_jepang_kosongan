@@ -62,6 +62,41 @@ class AlumniServiceTest extends TestCase
         $this->assertSame('Specified Skilled Worker', $updated['Visa_Type']);
     }
 
+    public function test_engineer_pathway_can_be_created_and_updated_canonically(): void
+    {
+        $alumni = new InMemoryAlumniRepository;
+        $service = new AlumniService($alumni, new InMemoryStudentRepository);
+
+        $created = $service->create(array_merge($this->manualPayload(), [
+            'Pathway' => 'ENGINEER',
+            'Visa_Type' => 'Engineer/Specialist in Humanities',
+            'Work_Field' => 'Mechanical Engineer',
+        ]));
+        $updated = $service->update((string) $created['Alumni_ID'], array_merge($this->manualPayload(), [
+            'Pathway' => 'ENGINEER',
+            'Visa_Type' => 'Engineer/Specialist in Humanities',
+            'Work_Field' => 'Mechanical Engineer',
+        ]));
+
+        $this->assertSame('ENGINEER', $created['Pathway']);
+        $this->assertSame('ENGINEER', $updated['Pathway']);
+        $this->assertSame('Mechanical Engineer', $updated['Work_Field']);
+        $this->assertSame('Engineer/Specialist in Humanities', $updated['Visa_Type']);
+    }
+
+    public function test_invalid_pathway_is_rejected_before_write(): void
+    {
+        $alumni = new InMemoryAlumniRepository;
+        $service = new AlumniService($alumni, new InMemoryStudentRepository);
+
+        try {
+            $service->create(array_merge($this->manualPayload(), ['Pathway' => 'engineering']));
+            $this->fail('Non-canonical pathway should be rejected.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertCount(0, $alumni->rows);
+        }
+    }
+
     public function test_wms_registration_is_coordinated_and_deactivates_student(): void
     {
         $alumni = new InMemoryAlumniRepository;
@@ -192,6 +227,29 @@ class AlumniServiceTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
         $service->selectedByIds(['ALM999999']);
+    }
+
+    public function test_pdf_photo_data_uri_uses_only_existing_local_profile_files_and_fails_safe(): void
+    {
+        $service = new AlumniService(new InMemoryAlumniRepository, new InMemoryStudentRepository);
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true);
+        \Storage::disk('public')->put('profiles/alumni_ALM000001_test.png', $png);
+
+        $uri = $service->photoDataUri([
+            'Alumni_ID' => 'ALM000001',
+            'Photo' => 'storage/profiles/alumni_ALM000001_test.png',
+        ]);
+
+        $this->assertNotNull($uri);
+        $this->assertStringStartsWith('data:image/png;base64,', $uri);
+        $this->assertNull($service->photoDataUri([
+            'Alumni_ID' => 'ALM000002',
+            'Photo' => 'https://example.com/photo.jpg',
+        ]));
+        $this->assertNull($service->photoDataUri([
+            'Alumni_ID' => 'ALM000003',
+            'Photo' => 'storage/profiles/missing.jpg',
+        ]));
     }
 
     public function test_student_service_does_not_classify_lulus_as_alumni_without_registry(): void

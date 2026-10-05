@@ -42,7 +42,15 @@
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Nama orang tua</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Parent_Name'] ?? null) ? $student['Parent_Name'] : 'Belum diisi' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Nomor Visa</dt><dd class="mt-1 font-mono text-slate-800">{{ filled($student['Visa_Number'] ?? null) ? $student['Visa_Number'] : 'Belum diisi' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Jenis Visa</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Visa_Type'] ?? null) ? $student['Visa_Type'] : 'Belum tersedia' }}</dd></div>
-                    <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Jalur</dt><dd class="mt-1 font-semibold text-indigo-700">{{ $student['Pathway_Label'] ?? 'Belum diketahui' }}</dd></div>
+                    @php
+                        $pathwayClass = match ($student['Pathway'] ?? null) {
+                            'TG' => 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+                            'MAGANG' => 'bg-amber-50 text-amber-700 ring-amber-200',
+                            'ENGINEER' => 'bg-cyan-50 text-cyan-700 ring-cyan-200',
+                            default => 'bg-slate-100 text-slate-600 ring-slate-200',
+                        };
+                    @endphp
+                    <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Jalur</dt><dd class="mt-1"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 {{ $pathwayClass }}">{{ $student['Pathway_Label'] ?? 'Belum diketahui' }}</span></dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Bidang Pekerjaan</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Work_Field'] ?? null) ? $student['Work_Field'] : 'Belum tersedia' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Wilayah Kerja</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Work_Region'] ?? null) ? $student['Work_Region'] : 'Belum tersedia' }}</dd></div>
                     <div><dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Tanggal keberangkatan</dt><dd class="mt-1 font-semibold text-slate-800">{{ filled($student['Departure_Date'] ?? null) ? $student['Departure_Date'] : 'Belum diisi' }}</dd></div>

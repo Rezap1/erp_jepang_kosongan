@@ -188,8 +188,21 @@ class AlumniController extends Controller
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => false,
         ]);
-        $pdf->getDomPDF()->addInfo('Title', 'Data Alumni Terpilih');
-        $pdf->getDomPDF()->addInfo('Author', 'Wakamiya Management System');
+        $pdf->getDomPDF()->addInfo('Title', 'Data Alumni - LPK Wakamiya');
+        $pdf->getDomPDF()->addInfo('Author', 'LPK Wakamiya');
+        $pdf->getDomPDF()->addInfo('Subject', 'Data Alumni');
+        $pdf->render();
+        $dompdf = $pdf->getDomPDF();
+        $canvas = $dompdf->getCanvas();
+        $font = $dompdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $canvas->page_text(
+            $canvas->get_width() - 126,
+            $canvas->get_height() - 24,
+            'Halaman {PAGE_NUM} dari {PAGE_COUNT}',
+            $font,
+            7,
+            [0.39, 0.45, 0.55]
+        );
 
         return $pdf->download($filename);
     }

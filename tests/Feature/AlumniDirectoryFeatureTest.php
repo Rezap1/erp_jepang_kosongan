@@ -87,7 +87,7 @@ class AlumniDirectoryFeatureTest extends TestCase
         $this->get(route('alumni.index', ['search' => 'Akira', 'pathway' => 'TG']))
             ->assertOk()
             ->assertSee('Total Alumni')
-            ->assertSee('TG vs Magang')
+            ->assertSee('Komposisi Jalur Alumni')
             ->assertSee('Alumni berdasarkan wilayah kerja')
             ->assertSee('Program Jepang')
             ->assertSee('Batch 1')
@@ -97,6 +97,7 @@ class AlumniDirectoryFeatureTest extends TestCase
             ->assertSee('Caregiver')
             ->assertSee('Specified Skilled Worker')
             ->assertSee('Tokutei Ginou (TG)')
+            ->assertSee('Engineer')
             ->assertSee('Tokyo')
             ->assertSee('cityHash', false)
             ->assertSee('cityPalette', false)
@@ -122,6 +123,59 @@ class AlumniDirectoryFeatureTest extends TestCase
         $this->assertStringContainsString('Bidang Pekerjaan', $csv);
         $this->assertStringContainsString('Wilayah Kerja', $csv);
         $this->assertStringContainsString('Specified Skilled Worker', $csv);
+    }
+
+    public function test_engineer_filter_and_directory_card_render_canonical_badge(): void
+    {
+        $row = array_merge($this->row(), [
+            'Pathway' => 'ENGINEER',
+            'Pathway_Label' => 'Engineer',
+            'Work_Field' => 'Mechanical Engineer',
+        ]);
+        $analytics = array_merge($this->analytics(), [
+            'tg' => 0,
+            'engineer' => 1,
+            'pathway_chart' => [
+                'labels' => ['Tokutei Ginou (TG)', 'Magang', 'Engineer'],
+                'values' => [0, 0, 1],
+            ],
+        ]);
+        $this->directory->shouldReceive('directory')->once()->with(Mockery::on(
+            fn (array $filters): bool => $filters['pathway'] === 'ENGINEER'
+        ))->andReturn([
+            'alumni' => new LengthAwarePaginator([$row], 1, 15, 1, ['path' => route('alumni.index')]),
+            'analytics' => $analytics,
+            'programs' => collect(),
+            'batches' => collect(),
+            'classes' => collect(),
+            'visaTypes' => collect(),
+            'workFields' => collect(['Mechanical Engineer']),
+            'regions' => collect(['Tokyo']),
+        ]);
+
+        $this->get(route('alumni.index', ['pathway' => 'ENGINEER']))
+            ->assertOk()
+            ->assertSee('value="ENGINEER" selected', false)
+            ->assertSee('bg-cyan-50 text-cyan-700 ring-cyan-200', false)
+            ->assertSee('Mechanical Engineer');
+    }
+
+    public function test_engineer_pathway_is_exported_to_csv(): void
+    {
+        $this->directory->shouldReceive('filteredRows')->once()->with(Mockery::on(
+            fn (array $filters): bool => $filters['pathway'] === 'ENGINEER'
+        ), 'all')->andReturn(collect([array_merge($this->row(), [
+            'Pathway' => 'ENGINEER',
+            'Pathway_Label' => 'Engineer',
+            'Work_Field' => 'Mechanical Engineer',
+        ])]));
+
+        $response = $this->get(route('alumni.export-csv', ['pathway' => 'ENGINEER']));
+
+        $response->assertOk()->assertDownload();
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Engineer', $csv);
+        $this->assertStringContainsString('Mechanical Engineer', $csv);
     }
 
     public function test_create_store_edit_update_show_and_deactivate_remain_available(): void
@@ -173,6 +227,88 @@ class AlumniDirectoryFeatureTest extends TestCase
 
         $this->alumni->shouldReceive('deactivate')->once()->with('ALM-1')->andReturn(true);
         $this->delete(route('alumni.destroy', 'ALM-1'))->assertRedirect(route('alumni.index'));
+    }
+
+    public function test_engineer_pathway_is_available_across_forms_store_update_and_detail(): void
+    {
+        $this->alumni->shouldReceive('eligibleStudents')->once()->andReturn(collect());
+        $this->get(route('alumni.create'))
+            ->assertOk()
+            ->assertSee('value="ENGINEER"', false)
+            ->assertSee('Engineer');
+
+        $payload = [
+            'Source_Type' => 'MANUAL',
+            'Full_Name' => 'Engineer Alumni',
+            'NIK' => '3170000000000099',
+            'Parent_Name' => 'Parent',
+            'Indonesia_Address' => 'Jakarta',
+            'Visa_Number' => 'VISA-ENG-1',
+            'Visa_Type' => 'Engineer/Specialist in Humanities',
+            'Pathway' => 'ENGINEER',
+            'Work_Field' => 'Mechanical Engineer',
+            'Japan_City' => 'Nagoya',
+            'Departure_Date' => '2026-01-15',
+        ];
+        $engineerRow = array_merge($this->row(), [
+            'Full_Name' => 'Engineer Alumni',
+            'Pathway' => 'ENGINEER',
+            'Pathway_Label' => 'Engineer',
+            'Visa_Type' => 'Engineer/Specialist in Humanities',
+            'Work_Field' => 'Mechanical Engineer',
+            'Japan_City' => 'Nagoya',
+            'Work_Region' => 'Nagoya',
+        ]);
+
+        $this->alumni->shouldReceive('create')->once()->with(Mockery::on(
+            fn (array $data): bool => $data['Pathway'] === 'ENGINEER'
+                && $data['Visa_Type'] === 'Engineer/Specialist in Humanities'
+                && $data['Work_Field'] === 'Mechanical Engineer'
+        ), null)->andReturn($engineerRow);
+        $this->post(route('alumni.store'), $payload)->assertRedirect(route('alumni.index'));
+
+        $this->alumni->shouldReceive('getById')->once()->with('ALM-1', false)->andReturn($engineerRow);
+        $this->get(route('alumni.edit', 'ALM-1'))
+            ->assertOk()
+            ->assertSee('value="ENGINEER" selected', false);
+
+        $this->alumni->shouldReceive('update')->once()->with('ALM-1', Mockery::on(
+            fn (array $data): bool => $data['Pathway'] === 'ENGINEER'
+                && $data['Visa_Type'] === 'Engineer/Specialist in Humanities'
+                && $data['Work_Field'] === 'Mechanical Engineer'
+        ))->andReturn($engineerRow);
+        $this->put(route('alumni.update', 'ALM-1'), $payload)
+            ->assertRedirect(route('alumni.show', 'ALM-1'));
+
+        $this->alumni->shouldReceive('getById')->once()->with('ALM-1', false)->andReturn($engineerRow);
+        $this->directory->shouldReceive('decorateProfile')->once()->andReturn($engineerRow);
+        $this->get(route('alumni.show', 'ALM-1'))
+            ->assertOk()
+            ->assertSee('Engineer')
+            ->assertSee('Mechanical Engineer')
+            ->assertSee('Engineer/Specialist in Humanities');
+    }
+
+    public function test_noncanonical_pathway_is_rejected_by_store_and_update(): void
+    {
+        $payload = [
+            'Source_Type' => 'MANUAL',
+            'Full_Name' => 'Invalid Pathway',
+            'NIK' => '3170000000000088',
+            'Parent_Name' => 'Parent',
+            'Indonesia_Address' => 'Jakarta',
+            'Visa_Number' => 'VISA-INVALID',
+            'Visa_Type' => 'Manual Visa',
+            'Pathway' => 'ENGINEERING',
+            'Work_Field' => 'Mechanical Engineer',
+            'Japan_City' => 'Nagoya',
+            'Departure_Date' => '2026-01-15',
+        ];
+        $this->alumni->shouldNotReceive('create');
+        $this->alumni->shouldNotReceive('update');
+
+        $this->post(route('alumni.store'), $payload)->assertSessionHasErrors('Pathway');
+        $this->put(route('alumni.update', 'ALM-1'), $payload)->assertSessionHasErrors('Pathway');
     }
 
     public function test_unauthorized_role_cannot_access_alumni_directory(): void
@@ -229,16 +365,33 @@ class AlumniDirectoryFeatureTest extends TestCase
 
     public function test_selected_pdf_deduplicates_ids_requeries_profiles_and_returns_valid_pdf(): void
     {
+        $photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
         $this->directory->shouldReceive('selectedProfiles')
             ->once()
-            ->with(['ALM000001', 'ALM000002'])
+            ->with(['ALM000001', 'ALM000002', 'ALM000003'])
             ->andReturn(collect([
-                $this->row(),
-                array_merge($this->row(), ['Alumni_ID' => 'ALM000002', 'Full_Name' => 'Budi']),
+                array_merge($this->row(), ['Photo_Data_URI' => $photo]),
+                array_merge($this->row(), [
+                    'Alumni_ID' => 'ALM000002',
+                    'Full_Name' => 'Budi Magang',
+                    'Pathway' => 'MAGANG',
+                    'Pathway_Label' => 'Magang',
+                ]),
+                array_merge($this->row(), [
+                    'Alumni_ID' => 'ALM000003',
+                    'Full_Name' => 'Nama Alumni Engineer Dengan Nama Sangat Panjang Untuk Pengujian Layout',
+                    'Pathway' => 'ENGINEER',
+                    'Pathway_Label' => 'Engineer',
+                    'Work_Field' => 'Mechanical Engineer untuk fasilitas manufaktur berteknologi tinggi',
+                    'Work_Region' => 'Kota Dengan Nama Wilayah Penempatan Sangat Panjang',
+                    'Visa_Type' => '',
+                    'Visa_Number' => '',
+                    'Photo_Data_URI' => $photo,
+                ]),
             ]));
 
         $response = $this->post(route('alumni.export-selected-pdf'), [
-            'alumni_ids' => ['alm000001', 'ALM000001', 'ALM000002'],
+            'alumni_ids' => ['alm000001', 'ALM000001', 'ALM000002', 'ALM000003'],
             'Full_Name' => 'Nama dari browser tidak dipercaya',
         ]);
 
@@ -255,10 +408,13 @@ class AlumniDirectoryFeatureTest extends TestCase
             ->once()
             ->with(['ALM000001'])
             ->andReturn(collect([array_merge($this->row(), [
+                'Pathway' => 'ENGINEER',
+                'Pathway_Label' => 'Engineer',
                 'Work_Field' => '',
                 'Visa_Type' => '',
                 'Visa_Number' => '',
                 'Work_Region' => '',
+                'Photo_Data_URI' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
             ])]));
 
         $response = $this->post(route('alumni.export-selected-pdf'), ['alumni_ids' => ['ALM000001']]);
@@ -282,14 +438,54 @@ class AlumniDirectoryFeatureTest extends TestCase
     public function test_pdf_template_contains_only_trusted_selected_profiles_and_work_field(): void
     {
         $html = view('pdf.selected_alumni', [
-            'alumni' => collect([$this->row()]),
+            'alumni' => collect([array_merge($this->row(), [
+                'Pathway' => 'ENGINEER',
+                'Pathway_Label' => 'Engineer',
+                'Photo_Data_URI' => 'data:image/png;base64,TEST',
+            ])]),
             'exportedAt' => now('Asia/Jakarta'),
         ])->render();
 
         $this->assertStringContainsString('ALM-1', $html);
         $this->assertStringContainsString('Caregiver', $html);
         $this->assertStringContainsString('Specified Skilled Worker', $html);
+        $this->assertStringContainsString('Profil Alumni LPK Wakamiya', $html);
+        $this->assertStringContainsString('Informasi Pribadi', $html);
+        $this->assertStringContainsString('Pekerjaan &amp; Penempatan', $html);
+        $this->assertStringContainsString('Informasi Visa', $html);
+        $this->assertStringContainsString('pathway-engineer', $html);
+        $this->assertStringContainsString('data:image/png;base64,TEST', $html);
         $this->assertStringNotContainsString('ALM999999', $html);
+    }
+
+    public function test_multiple_pdf_template_uses_compact_unbroken_cards_with_photo_fallback(): void
+    {
+        $html = view('pdf.selected_alumni', [
+            'alumni' => collect([
+                array_merge($this->row(), ['Photo_Data_URI' => 'data:image/png;base64,TEST']),
+                array_merge($this->row(), [
+                    'Alumni_ID' => 'ALM-2',
+                    'Pathway' => 'MAGANG',
+                    'Pathway_Label' => 'Magang',
+                    'Photo_Data_URI' => null,
+                ]),
+                array_merge($this->row(), [
+                    'Alumni_ID' => 'ALM-3',
+                    'Pathway' => 'ENGINEER',
+                    'Pathway_Label' => 'Engineer',
+                    'Photo_Data_URI' => null,
+                ]),
+            ]),
+            'exportedAt' => now('Asia/Jakarta'),
+        ])->render();
+
+        $this->assertSame(3, substr_count($html, '<section class="compact-card">'));
+        $this->assertStringContainsString('page-break-inside: avoid', $html);
+        $this->assertStringContainsString('compact-photo', $html);
+        $this->assertStringContainsString('compact-fallback', $html);
+        $this->assertStringContainsString('pathway-tg', $html);
+        $this->assertStringContainsString('pathway-magang', $html);
+        $this->assertStringContainsString('pathway-engineer', $html);
     }
 
     public function test_empty_directory_renders_safe_zero_and_disabled_selection_contract(): void
@@ -301,7 +497,8 @@ class AlumniDirectoryFeatureTest extends TestCase
                 'tg' => 0,
                 'magang' => 0,
                 'total_regions' => 0,
-                'pathway_chart' => ['labels' => ['Tokutei Ginou', 'Magang'], 'values' => [0, 0]],
+                'engineer' => 0,
+                'pathway_chart' => ['labels' => ['Tokutei Ginou (TG)', 'Magang', 'Engineer'], 'values' => [0, 0, 0]],
                 'region_chart' => ['labels' => [], 'values' => []],
             ]),
             'programs' => collect(),
@@ -355,10 +552,11 @@ class AlumniDirectoryFeatureTest extends TestCase
             'total' => 1,
             'tg' => 1,
             'magang' => 0,
+            'engineer' => 0,
             'total_regions' => 1,
             'unknown_pathway' => 0,
             'unknown_region' => 0,
-            'pathway_chart' => ['labels' => ['Tokutei Ginou', 'Magang'], 'values' => [1, 0]],
+            'pathway_chart' => ['labels' => ['Tokutei Ginou (TG)', 'Magang', 'Engineer'], 'values' => [1, 0, 0]],
             'region_chart' => ['labels' => ['Tokyo'], 'values' => [1]],
         ];
     }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Support\AlumniPathway;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateAlumniRequest extends FormRequest
 {
@@ -20,7 +22,7 @@ class UpdateAlumniRequest extends FormRequest
             'Indonesia_Address' => 'required|string|max:1000',
             'Visa_Number' => 'required|string|max:100',
             'Visa_Type' => 'required|string|max:100',
-            'Pathway' => 'required|in:TG,MAGANG',
+            'Pathway' => ['required', Rule::in(AlumniPathway::values())],
             'Work_Field' => 'nullable|string|max:150',
             'Japan_City' => 'required|string|max:150',
             'Departure_Date' => 'required|date|before_or_equal:today',
@@ -37,7 +39,7 @@ class UpdateAlumniRequest extends FormRequest
             'Visa_Number.required' => 'Nomor Visa wajib diisi.',
             'Visa_Type.required' => 'Jenis Visa wajib diisi.',
             'Pathway.required' => 'Jalur wajib dipilih.',
-            'Pathway.in' => 'Jalur harus Tokutei Ginou (TG) atau Magang.',
+            'Pathway.in' => 'Jalur harus Tokutei Ginou (TG), Magang, atau Engineer.',
             'Japan_City.required' => 'Kota di Jepang wajib diisi.',
             'Departure_Date.required' => 'Tanggal keberangkatan wajib diisi.',
             'Departure_Date.before_or_equal' => 'Tanggal keberangkatan tidak boleh di masa depan.',

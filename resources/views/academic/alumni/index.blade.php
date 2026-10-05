@@ -7,9 +7,11 @@
     $total = (int) ($analytics['total'] ?? 0);
     $tg = (int) ($analytics['tg'] ?? 0);
     $magang = (int) ($analytics['magang'] ?? 0);
+    $engineer = (int) ($analytics['engineer'] ?? 0);
     $tgPercentage = $total > 0 ? (int) round(($tg / $total) * 100) : 0;
     $magangPercentage = $total > 0 ? (int) round(($magang / $total) * 100) : 0;
-    $classifiedTotal = $tg + $magang;
+    $engineerPercentage = $total > 0 ? (int) round(($engineer / $total) * 100) : 0;
+    $classifiedTotal = $tg + $magang + $engineer;
     $regionCount = count($analytics['region_chart']['labels'] ?? []);
     $regionChartHeight = max(280, ($regionCount * 52) + 54);
     $activeFilters = ['search', 'program', 'batch', 'class', 'source', 'pathway', 'visa_type', 'work_field', 'region', 'departure_year', 'status'];
@@ -38,12 +40,13 @@
         </div>
     @endif
 
-    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Ringkasan Alumni">
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" aria-label="Ringkasan Alumni">
         @php
             $kpis = [
                 ['label' => 'Total Alumni', 'value' => $total, 'support' => 'Seluruh alumni terdaftar', 'gradient' => 'from-indigo-600 to-violet-700', 'shadow' => 'shadow-indigo-200/60', 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
                 ['label' => 'Tokutei Ginou', 'value' => $tg, 'support' => $tgPercentage.'% dari total Alumni', 'gradient' => 'from-sky-500 to-cyan-600', 'shadow' => 'shadow-sky-200/60', 'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
                 ['label' => 'Magang', 'value' => $magang, 'support' => $magangPercentage.'% dari total Alumni', 'gradient' => 'from-amber-500 to-orange-600', 'shadow' => 'shadow-orange-200/60', 'icon' => 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'],
+                ['label' => 'Engineer', 'value' => $engineer, 'support' => $engineerPercentage.'% dari total Alumni', 'gradient' => 'from-cyan-500 to-blue-600', 'shadow' => 'shadow-cyan-200/60', 'icon' => 'M11.42 15.17l-5.66-5.66a2 2 0 112.83-2.83l1.41 1.42 4.24-4.25a2 2 0 112.83 2.83l-5.65 5.66m0 2.83l-2.83 2.83m2.83-2.83l2.83 2.83'],
                 ['label' => 'Wilayah Kerja', 'value' => $analytics['total_regions'], 'support' => 'Kota berbeda', 'gradient' => 'from-emerald-500 to-teal-600', 'shadow' => 'shadow-emerald-200/60', 'icon' => 'M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z'],
             ];
         @endphp
@@ -58,19 +61,20 @@
     <section class="grid grid-cols-1 gap-5 xl:grid-cols-5" aria-label="Analitik Alumni">
         <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-span-2">
             <div class="flex items-start justify-between gap-4">
-                <div><p class="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-600">Komposisi Jalur</p><h2 class="mt-1 text-lg font-black text-slate-950">TG vs Magang</h2><p class="mt-1 text-xs text-slate-500">Perbandingan jalur penempatan Alumni</p></div>
+                <div><p class="text-[11px] font-black uppercase tracking-[0.18em] text-indigo-600">Komposisi Jalur Alumni</p><h2 class="mt-1 text-lg font-black text-slate-950">Komposisi Jalur Alumni</h2><p class="mt-1 text-xs text-slate-500">Perbandingan tiga jalur penempatan Alumni</p></div>
                 @if($analytics['unknown_pathway'] > 0)<span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">{{ $analytics['unknown_pathway'] }} belum diketahui</span>@endif
             </div>
             @if($classifiedTotal > 0)
                 <div class="mt-5 grid items-center gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(150px,0.8fr)] xl:grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_minmax(150px,0.8fr)]">
-                    <div class="mx-auto h-52 w-full max-w-[230px]"><canvas id="pathwayChart" aria-label="Grafik perbandingan Tokutei Ginou dan Magang" role="img"></canvas></div>
+                    <div class="mx-auto h-52 w-full max-w-[230px]"><canvas id="pathwayChart" aria-label="Grafik komposisi Tokutei Ginou, Magang, dan Engineer" role="img"></canvas></div>
                     <div class="space-y-3" aria-label="Legenda komposisi jalur">
                         <div class="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3"><div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-indigo-600"></span><p class="text-xs font-black text-slate-800">Tokutei Ginou (TG)</p></div><div class="mt-2 flex items-end justify-between"><span class="text-lg font-black text-slate-950">{{ $tg }} <small class="text-xs font-semibold text-slate-500">alumni</small></span><span class="text-sm font-black text-indigo-700">{{ $tgPercentage }}%</span></div></div>
                         <div class="rounded-xl border border-orange-100 bg-orange-50/70 p-3"><div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-orange-500"></span><p class="text-xs font-black text-slate-800">Magang</p></div><div class="mt-2 flex items-end justify-between"><span class="text-lg font-black text-slate-950">{{ $magang }} <small class="text-xs font-semibold text-slate-500">alumni</small></span><span class="text-sm font-black text-orange-700">{{ $magangPercentage }}%</span></div></div>
+                        <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 p-3"><div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-cyan-500"></span><p class="text-xs font-black text-slate-800">Engineer</p></div><div class="mt-2 flex items-end justify-between"><span class="text-lg font-black text-slate-950">{{ $engineer }} <small class="text-xs font-semibold text-slate-500">alumni</small></span><span class="text-sm font-black text-cyan-700">{{ $engineerPercentage }}%</span></div></div>
                     </div>
                 </div>
             @else
-                <div class="mt-5 flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 text-center"><p class="text-sm font-black text-slate-700">Belum ada komposisi jalur</p><p class="mt-1 text-xs text-slate-500">Grafik akan tampil setelah data TG atau Magang tersedia.</p></div>
+                <div class="mt-5 flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 text-center"><p class="text-sm font-black text-slate-700">Belum ada komposisi jalur</p><p class="mt-1 text-xs text-slate-500">Grafik akan tampil setelah data TG, Magang, atau Engineer tersedia.</p></div>
             @endif
         </article>
         <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-span-3">
@@ -137,9 +141,10 @@
         <label>
             <span class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Jalur</span>
             <select name="pathway" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500">
-                <option value="">Semua jalur</option>
+                <option value="">Semua Jalur</option>
                 <option value="TG" @selected(request('pathway') === 'TG')>Tokutei Ginou (TG)</option>
                 <option value="MAGANG" @selected(request('pathway') === 'MAGANG')>Magang</option>
+                <option value="ENGINEER" @selected(request('pathway') === 'ENGINEER')>Engineer</option>
             </select>
         </label>
         <label>
@@ -213,6 +218,12 @@
                     $alumniId = trim((string) ($row['Alumni_ID'] ?? ''));
                     $name = filled($row['Full_Name'] ?? null) ? $row['Full_Name'] : 'Belum tersedia';
                     $initial = mb_strtoupper(mb_substr(trim((string) $name), 0, 1));
+                    $pathwayBadgeClass = match ($row['Pathway'] ?? null) {
+                        'TG' => 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+                        'MAGANG' => 'bg-amber-50 text-amber-700 ring-amber-200',
+                        'ENGINEER' => 'bg-cyan-50 text-cyan-700 ring-cyan-200',
+                        default => 'bg-slate-100 text-slate-600 ring-slate-200',
+                    };
                 @endphp
                 <article class="group flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" :class="isSelected('{{ $alumniId }}') ? 'border-indigo-400 ring-2 ring-indigo-100 bg-indigo-50/20' : ''">
                     <div class="flex items-start gap-3 border-b border-slate-100 p-4 sm:p-5">
@@ -236,7 +247,7 @@
                     <dl class="grid grid-cols-1 gap-3 p-4 text-sm sm:grid-cols-2 sm:p-5">
                         <div>
                             <dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Jalur</dt>
-                            <dd class="mt-0.5 font-bold text-indigo-700">{{ filled($row['Pathway'] ?? null) ? ($row['Pathway_Label'] ?? 'Belum diketahui') : 'Belum tersedia' }}</dd>
+                            <dd class="mt-1"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 {{ $pathwayBadgeClass }}">{{ filled($row['Pathway'] ?? null) ? ($row['Pathway_Label'] ?? 'Belum diketahui') : 'Belum tersedia' }}</span></dd>
                         </div>
                         <div>
                             <dt class="text-[10px] font-black uppercase tracking-wide text-slate-400">Wilayah kerja</dt>
@@ -359,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function () {
             plugins: [centerTextPlugin],
             data: {
                 labels: analytics.pathway_chart.labels,
-                datasets: [{ data: analytics.pathway_chart.values, backgroundColor: ['#4f46e5', '#f97316'], borderColor: '#ffffff', borderWidth: 4, hoverOffset: 5 }]
+                datasets: [{ data: analytics.pathway_chart.values, backgroundColor: ['#6366F1', '#F59E0B', '#06B6D4'], borderColor: '#ffffff', borderWidth: 4, hoverOffset: 5 }]
             },
             options: {
                 responsive: true,

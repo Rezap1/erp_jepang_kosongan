@@ -76,4 +76,40 @@ class AlumniWorkFieldMySqlTest extends TestCase
 
         $this->assertNull($repository->findByIdFresh('ALM990002')['Work_Field']);
     }
+
+    public function test_engineer_pathway_fits_existing_varchar_and_persists_without_field_inference(): void
+    {
+        $connection = DB::connection((string) config('wms_runtime.connection'));
+        $column = $connection->selectOne(
+            "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+             FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'MASTER_ALUMNI'
+               AND COLUMN_NAME = 'Pathway'"
+        );
+        $this->assertNotNull($column);
+        $this->assertSame('varchar', strtolower((string) $column->DATA_TYPE));
+        $this->assertGreaterThanOrEqual(32, (int) $column->CHARACTER_MAXIMUM_LENGTH);
+
+        $repository = app(AlumniRepository::class);
+        $repository->create([
+            'Alumni_ID' => 'ALM990003',
+            'Source_Type' => 'MANUAL',
+            'Full_Name' => 'MySQL Engineer Pathway Test',
+            'NIK' => '990003',
+            'Visa_Number' => 'VISA-990003',
+            'Visa_Type' => 'Existing Manual Visa Type',
+            'Pathway' => 'ENGINEER',
+            'Work_Field' => 'Mechanical Engineer',
+            'Japan_City' => 'Nagoya',
+            'Departure_Date' => '2026-01-01',
+            'Status' => 'ALUMNI',
+            'Is_Active' => 'TRUE',
+        ]);
+
+        $persisted = $repository->findByIdFresh('ALM990003');
+        $this->assertSame('ENGINEER', $persisted['Pathway']);
+        $this->assertSame('Mechanical Engineer', $persisted['Work_Field']);
+        $this->assertSame('Existing Manual Visa Type', $persisted['Visa_Type']);
+    }
 }

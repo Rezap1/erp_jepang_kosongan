@@ -27,19 +27,21 @@ class AlumniDirectoryServiceTest extends TestCase
             $this->row('ALM-1', 'TG', 'Engineer', 'Tokyo'),
             $this->row('ALM-2', 'MAGANG', 'Technical Intern', 'Osaka'),
             $this->row('ALM-3', 'TG', 'Engineer', 'TOKYO'),
-            $this->row('ALM-4', '', '', ''),
+            $this->row('ALM-4', 'ENGINEER', 'Engineer/Specialist in Humanities', 'Nagoya'),
+            $this->row('ALM-5', '', '', ''),
         ]);
 
         $result = $service->directory([]);
 
-        $this->assertSame(4, $result['analytics']['total']);
+        $this->assertSame(5, $result['analytics']['total']);
         $this->assertSame(2, $result['analytics']['tg']);
         $this->assertSame(1, $result['analytics']['magang']);
+        $this->assertSame(1, $result['analytics']['engineer']);
         $this->assertSame(1, $result['analytics']['unknown_pathway']);
-        $this->assertSame(2, $result['analytics']['total_regions']);
+        $this->assertSame(3, $result['analytics']['total_regions']);
         $this->assertSame(1, $result['analytics']['unknown_region']);
-        $this->assertSame(['Tokyo', 'Osaka'], $result['analytics']['region_chart']['labels']);
-        $this->assertSame([2, 1], $result['analytics']['region_chart']['values']);
+        $this->assertSame(['Tokyo', 'Nagoya', 'Osaka'], $result['analytics']['region_chart']['labels']);
+        $this->assertSame([2, 1, 1], $result['analytics']['region_chart']['values']);
     }
 
     public function test_pathway_visa_region_and_search_filters_compose(): void
@@ -71,16 +73,19 @@ class AlumniDirectoryServiceTest extends TestCase
         $this->assertSame(['ALM-3'], $rows->pluck('Alumni_ID')->all());
     }
 
-    public function test_tg_and_magang_filters_do_not_misclassify_unknown_values(): void
+    public function test_three_pathway_filters_do_not_misclassify_unknown_values(): void
     {
         $service = $this->service([
             $this->row('ALM-TG', 'TG', 'Engineer', 'Tokyo'),
             $this->row('ALM-MAGANG', 'MAGANG', 'Technical Intern', 'Osaka'),
+            $this->row('ALM-ENGINEER', 'ENGINEER', 'Engineer', 'Nagoya'),
             $this->row('ALM-UNKNOWN', 'Tokutei Ginou', '', ''),
         ]);
 
         $this->assertSame(['ALM-TG'], $service->filteredRows(['pathway' => 'TG'])->pluck('Alumni_ID')->all());
         $this->assertSame(['ALM-MAGANG'], $service->filteredRows(['pathway' => 'MAGANG'])->pluck('Alumni_ID')->all());
+        $this->assertSame(['ALM-ENGINEER'], $service->filteredRows(['pathway' => 'ENGINEER'])->pluck('Alumni_ID')->all());
+        $this->assertSame('Engineer', $service->decorateProfile(['Pathway' => 'ENGINEER'])['Pathway_Label']);
         $this->assertSame('Belum diketahui', $service->decorateProfile(['Pathway' => 'Tokutei Ginou'])['Pathway_Label']);
     }
 
@@ -89,18 +94,30 @@ class AlumniDirectoryServiceTest extends TestCase
         $analytics = $this->service([])->directory([])['analytics'];
 
         $this->assertSame(0, $analytics['total']);
-        $this->assertSame([0, 0], $analytics['pathway_chart']['values']);
+        $this->assertSame([0, 0, 0], $analytics['pathway_chart']['values']);
         $this->assertSame([], $analytics['region_chart']['labels']);
         $this->assertSame([], $analytics['region_chart']['values']);
     }
 
-    public function test_single_pathway_datasets_keep_zero_counterpart_without_division_errors(): void
+    public function test_all_pathway_dataset_combinations_keep_zeroes_without_division_errors(): void
     {
-        $tgOnly = $this->service([$this->row('ALM-TG', 'TG', '', 'Tokyo')])->directory([])['analytics'];
-        $magangOnly = $this->service([$this->row('ALM-MAGANG', 'MAGANG', '', 'Osaka')])->directory([])['analytics'];
+        $cases = [
+            'TG only' => [['TG'], [1, 0, 0]],
+            'Magang only' => [['MAGANG'], [0, 1, 0]],
+            'Engineer only' => [['ENGINEER'], [0, 0, 1]],
+            'TG + Magang' => [['TG', 'MAGANG'], [1, 1, 0]],
+            'TG + Engineer' => [['TG', 'ENGINEER'], [1, 0, 1]],
+            'Magang + Engineer' => [['MAGANG', 'ENGINEER'], [0, 1, 1]],
+            'all pathways' => [['TG', 'MAGANG', 'ENGINEER'], [1, 1, 1]],
+        ];
 
-        $this->assertSame([1, 0], $tgOnly['pathway_chart']['values']);
-        $this->assertSame([0, 1], $magangOnly['pathway_chart']['values']);
+        foreach ($cases as $label => [$pathways, $expected]) {
+            $rows = collect($pathways)
+                ->map(fn (string $pathway, int $index): array => $this->row('ALM-'.$index, $pathway, '', 'Tokyo'))
+                ->all();
+            $analytics = $this->service($rows)->directory([])['analytics'];
+            $this->assertSame($expected, $analytics['pathway_chart']['values'], $label);
+        }
     }
 
     public function test_many_new_and_long_city_names_remain_complete_in_chart_dataset(): void

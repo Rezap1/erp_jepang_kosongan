@@ -80,6 +80,7 @@
                         <option value="">Pilih jalur</option>
                         <option value="TG" @selected(old('Pathway', $alumni['Pathway'] ?? '') === 'TG')>Tokutei Ginou (TG)</option>
                         <option value="MAGANG" @selected(old('Pathway', $alumni['Pathway'] ?? '') === 'MAGANG')>Magang</option>
+                        <option value="ENGINEER" @selected(old('Pathway', $alumni['Pathway'] ?? '') === 'ENGINEER')>Engineer</option>
                     </select>
                 </label>
                 <label class="block">

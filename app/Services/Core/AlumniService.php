@@ -6,6 +6,7 @@ use App\Helpers\SheetValue;
 use App\Interfaces\GoogleSheets\AlumniRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Support\ActorIdentity;
+use App\Support\AlumniPathway;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -466,6 +467,34 @@ class AlumniService
         return $this->withPhoto($row)['Photo_URL'] ?? null;
     }
 
+    public function photoDataUri(array $row): ?string
+    {
+        $photo = $this->normalizePhotoPath($row['Photo'] ?? '');
+        if ($photo === null && ! empty($row['Student_ID'])) {
+            $photo = $this->normalizePhotoPath($this->findStudentPhotoPath((string) $row['Student_ID']));
+        }
+        if ($photo === null) {
+            return null;
+        }
+
+        try {
+            $disk = Storage::disk('public');
+            $mime = strtolower((string) $disk->mimeType($photo));
+            if (! in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+                return null;
+            }
+
+            return 'data:'.$mime.';base64,'.base64_encode($disk->get($photo));
+        } catch (Throwable $e) {
+            Log::notice('Alumni PDF photo unavailable', [
+                'alumni_id' => $row['Alumni_ID'] ?? null,
+                'exception' => get_class($e),
+            ]);
+
+            return null;
+        }
+    }
+
     protected function normalizePayload(array $data, string $source, ?array $student, ?array $existing = null): array
     {
         $student = $student ?: [];
@@ -667,9 +696,9 @@ class AlumniService
 
     protected function normalizePathway(mixed $pathway): string
     {
-        $pathway = strtoupper(trim((string) $pathway));
-        if (! in_array($pathway, ['TG', 'MAGANG'], true)) {
-            throw new InvalidArgumentException('Jalur harus Tokutei Ginou (TG) atau Magang.');
+        $pathway = AlumniPathway::normalize($pathway);
+        if ($pathway === null) {
+            throw new InvalidArgumentException('Jalur harus Tokutei Ginou (TG), Magang, atau Engineer.');
         }
 
         return $pathway;

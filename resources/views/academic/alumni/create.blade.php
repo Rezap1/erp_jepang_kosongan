@@ -97,6 +97,7 @@
                         <option value="">Pilih jalur</option>
                         <option value="TG" @selected(old('Pathway') === 'TG')>Tokutei Ginou (TG)</option>
                         <option value="MAGANG" @selected(old('Pathway') === 'MAGANG')>Magang</option>
+                        <option value="ENGINEER" @selected(old('Pathway') === 'ENGINEER')>Engineer</option>
                     </select>
                 </label>
                 <label class="block">
