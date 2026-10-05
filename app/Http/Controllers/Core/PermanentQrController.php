@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Interfaces\GoogleSheets\EmployeeRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Services\Academic\StudentQRAttendanceService;
+use App\Services\Attendance\AttendanceWindowService;
 use App\Services\Core\ActivityLogService;
 use App\Services\Core\PermanentQrService;
 use App\Services\Core\RoleService;
@@ -54,9 +55,15 @@ class PermanentQrController extends Controller
             ->values();
 
         $studentWindow = [
-            'start' => $this->settingService->get('WORK_START_TIME'),
-            'end' => $this->settingService->get('WORK_END_TIME'),
-            'timezone' => 'Asia/Jakarta',
+            'start' => $this->settingService->get(
+                AttendanceWindowService::START_SETTING_KEY,
+                AttendanceWindowService::DEFAULT_START
+            ),
+            'end' => $this->settingService->get(
+                AttendanceWindowService::END_SETTING_KEY,
+                AttendanceWindowService::DEFAULT_END
+            ),
+            'timezone' => AttendanceWindowService::TIMEZONE,
         ];
 
         return view('attendance.qr.index', compact('qrCodes', 'studentWindow'));
@@ -221,8 +228,16 @@ class PermanentQrController extends Controller
         }
 
         try {
-            $this->settingService->set('WORK_START_TIME', $prepared['WORK_START_TIME'], $actor);
-            $this->settingService->set('WORK_END_TIME', $prepared['WORK_END_TIME'], $actor);
+            $this->settingService->set(
+                AttendanceWindowService::START_SETTING_KEY,
+                $prepared['WORK_START_TIME'],
+                $actor
+            );
+            $this->settingService->set(
+                AttendanceWindowService::END_SETTING_KEY,
+                $prepared['WORK_END_TIME'],
+                $actor
+            );
             $this->settingService->reloadCache();
         } catch (\Throwable $exception) {
             report($exception);

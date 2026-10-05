@@ -521,7 +521,12 @@ class StudentQRAttendanceService
 
     private function parseRequiredCoordinate(mixed $value, float $minimum, float $maximum, string $label): float
     {
-        $coordinate = CoordinateNormalizer::parse($value, $minimum, $maximum);
+        $coordinate = CoordinateNormalizer::parse(
+            $value,
+            $minimum,
+            $maximum,
+            allowMigratedFixedScaleInteger: true
+        );
         if ($coordinate === null) {
             throw new Exception("Konfigurasi {$label} lokasi LPK belum valid. Presensi ditolak.");
         }

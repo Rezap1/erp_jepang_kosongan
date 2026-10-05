@@ -11,6 +11,14 @@ class AttendanceWindowService
 {
     public const TIMEZONE = 'Asia/Jakarta';
 
+    public const START_SETTING_KEY = 'STUDENT_ATTENDANCE_START_TIME';
+
+    public const END_SETTING_KEY = 'STUDENT_ATTENDANCE_END_TIME';
+
+    public const DEFAULT_START = '06:00';
+
+    public const DEFAULT_END = '08:30';
+
     public function __construct(private SystemSettingService $settingService) {}
 
     public function serverNow(): CarbonImmutable
@@ -29,8 +37,8 @@ class AttendanceWindowService
             ? CarbonImmutable::instance($serverNow)->setTimezone(self::TIMEZONE)
             : $this->serverNow();
 
-        $startValue = $this->requiredTimeSetting('WORK_START_TIME');
-        $endValue = $this->requiredTimeSetting('WORK_END_TIME');
+        $startValue = $this->requiredTimeSetting(self::START_SETTING_KEY, self::DEFAULT_START);
+        $endValue = $this->requiredTimeSetting(self::END_SETTING_KEY, self::DEFAULT_END);
         $start = CarbonImmutable::createFromFormat(
             '!Y-m-d H:i:s',
             $now->toDateString().' '.$startValue.':00',
@@ -96,9 +104,9 @@ class AttendanceWindowService
         ];
     }
 
-    private function requiredTimeSetting(string $key): string
+    private function requiredTimeSetting(string $key, string $default): string
     {
-        $value = trim((string) $this->settingService->get($key, ''));
+        $value = trim((string) $this->settingService->get($key, $default));
         if (! preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $value)) {
             throw new InvalidArgumentException(
                 "Konfigurasi {$key} belum valid. Presensi ditolak."

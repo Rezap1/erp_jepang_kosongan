@@ -329,11 +329,11 @@ class CriticalAttendanceIntegrityTest extends TestCase
     public static function invalidConfigurationProvider(): array
     {
         return [
-            'missing start' => [['WORK_START_TIME' => '']],
-            'missing end' => [['WORK_END_TIME' => '']],
-            'malformed start' => [['WORK_START_TIME' => '6:00']],
-            'same boundary' => [['WORK_END_TIME' => '06:00']],
-            'overnight unsupported' => [['WORK_START_TIME' => '22:00', 'WORK_END_TIME' => '06:00']],
+            'missing start' => [['STUDENT_ATTENDANCE_START_TIME' => '']],
+            'missing end' => [['STUDENT_ATTENDANCE_END_TIME' => '']],
+            'malformed start' => [['STUDENT_ATTENDANCE_START_TIME' => '6:00']],
+            'same boundary' => [['STUDENT_ATTENDANCE_END_TIME' => '06:00']],
+            'overnight unsupported' => [['STUDENT_ATTENDANCE_START_TIME' => '22:00', 'STUDENT_ATTENDANCE_END_TIME' => '06:00']],
         ];
     }
 
@@ -378,8 +378,8 @@ class CriticalAttendanceIntegrityTest extends TestCase
     private function settings(array $overrides = []): SystemSettingService
     {
         $values = array_merge([
-            'WORK_START_TIME' => '06:00',
-            'WORK_END_TIME' => '08:30',
+            'STUDENT_ATTENDANCE_START_TIME' => '06:00',
+            'STUDENT_ATTENDANCE_END_TIME' => '08:30',
             'LATE_TOLERANCE_MINUTES' => '30',
             'LPK_LATITUDE' => '-6.81234',
             'LPK_LONGITUDE' => '107.19451',

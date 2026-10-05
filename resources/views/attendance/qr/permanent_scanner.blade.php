@@ -7,8 +7,14 @@
     $qrRadiusLabel = is_numeric($qrRadius)
         ? rtrim(rtrim(number_format((float) $qrRadius, 2, '.', ''), '0'), '.') . ' meter'
         : 'belum dikonfigurasi';
-    $attendanceStart = app(\App\Services\Core\SystemSettingService::class)->get('WORK_START_TIME', null);
-    $attendanceEnd = app(\App\Services\Core\SystemSettingService::class)->get('WORK_END_TIME', null);
+    $attendanceStart = app(\App\Services\Core\SystemSettingService::class)->get(
+        \App\Services\Attendance\AttendanceWindowService::START_SETTING_KEY,
+        \App\Services\Attendance\AttendanceWindowService::DEFAULT_START
+    );
+    $attendanceEnd = app(\App\Services\Core\SystemSettingService::class)->get(
+        \App\Services\Attendance\AttendanceWindowService::END_SETTING_KEY,
+        \App\Services\Attendance\AttendanceWindowService::DEFAULT_END
+    );
     $attendanceWindowLabel = preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', (string) $attendanceStart)
         && preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', (string) $attendanceEnd)
         ? "{$attendanceStart}–{$attendanceEnd} WIB"

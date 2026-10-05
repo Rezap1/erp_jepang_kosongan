@@ -77,8 +77,8 @@ class PermanentQrManagementAuthorizationTest extends TestCase
             ['WORK_START_TIME' => '06:30', 'WORK_END_TIME' => '09:00'],
             [],
         ]);
-        $settings->shouldReceive('set')->once()->with('WORK_START_TIME', '06:30', "USR-{$roleName}");
-        $settings->shouldReceive('set')->once()->with('WORK_END_TIME', '09:00', "USR-{$roleName}");
+        $settings->shouldReceive('set')->once()->with('STUDENT_ATTENDANCE_START_TIME', '06:30', "USR-{$roleName}");
+        $settings->shouldReceive('set')->once()->with('STUDENT_ATTENDANCE_END_TIME', '09:00', "USR-{$roleName}");
         $settings->shouldReceive('reloadCache')->once();
         $this->actingAs($this->user("USR-{$roleName}", $roleId));
 

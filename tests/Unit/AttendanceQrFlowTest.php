@@ -702,6 +702,35 @@ class AttendanceQrFlowTest extends TestCase
         $this->assertSame(0, $created['Late_Minutes']);
     }
 
+    public function test_student_qr_accepts_fixed_scale_coordinates_from_mysql_import(): void
+    {
+        Cache::flush();
+        $this->putOpenStudentSession();
+
+        $attendanceRepo = Mockery::mock(AttendanceRepositoryInterface::class);
+        $attendanceRepo->shouldReceive('fetchAll')->once()->andReturn([]);
+        $attendanceRepo->shouldReceive('create')->once()->andReturn(true);
+
+        $enterpriseEvent = Mockery::mock(EnterpriseEventService::class);
+        $enterpriseEvent->shouldReceive('dispatch')->once();
+
+        $service = new StudentQRAttendanceService(
+            $attendanceRepo,
+            $this->studentRepositoryForQr(),
+            $this->studentQrSettings('-6812391', '107194458'),
+            $enterpriseEvent
+        );
+
+        Carbon::setTestNow('2026-08-23 08:16:00');
+        $this->actingAs(new GenericUser(['id' => 'USR-STU', 'User_ID' => 'USR-STU', 'Role' => 'STUDENT']));
+
+        $result = $service->processStudentScan($this->studentToken(), -6.812391, 107.194458, 'Student Device');
+
+        $this->assertSame('PRESENT', $result['status']);
+        $this->assertSame(0, $result['late_minutes']);
+        $this->assertSame(0.0, $result['distance_meters']);
+    }
+
     public function test_student_qr_scan_outside_twenty_meter_geofence_is_denied(): void
     {
         Cache::flush();
@@ -765,6 +794,39 @@ class AttendanceQrFlowTest extends TestCase
         $this->assertSame('EMP-B', $second['employee']['id']);
         $this->assertSame('LATE', $first['status']);
         $this->assertSame('LATE', $second['status']);
+    }
+
+    public function test_employee_qr_accepts_fixed_scale_coordinates_from_mysql_import(): void
+    {
+        Cache::flush();
+        $this->configureEmployeeSettings(3600, '-6812391', '107194458');
+        $identifier = 'WMS-ATT-EMP-IMPORT1';
+        $this->bindPermanentQrService($identifier, 'EMPLOYEE', 1);
+
+        $attendanceRepo = Mockery::mock(AttendanceRepositoryInterface::class);
+        $attendanceRepo->shouldReceive('fetchAll')->once()->andReturn([]);
+        $attendanceRepo->shouldReceive('create')->once()->andReturn(true);
+
+        $employeeRepo = Mockery::mock(EmployeeRepositoryInterface::class);
+        $employeeRepo->shouldReceive('fetchAll')->once()->andReturn([$this->employeeRowsForQr()[0]]);
+
+        $enterpriseEvent = Mockery::mock(EnterpriseEventService::class);
+        $enterpriseEvent->shouldReceive('dispatch')->once();
+
+        $service = new QRAttendanceService($attendanceRepo, $employeeRepo, $enterpriseEvent);
+
+        Carbon::setTestNow('2026-08-23 20:10:00');
+        $this->actingAs(new GenericUser(['id' => 'USR-EMP-A', 'User_ID' => 'USR-EMP-A', 'Role' => 'HR']));
+
+        $result = $service->processScan(
+            $this->permanentQrUrl('employee', $identifier),
+            'Employee Device',
+            -6.812391,
+            107.194458
+        );
+
+        $this->assertSame('EMP-A', $result['employee']['id']);
+        $this->assertSame(0.0, $result['distance_meters']);
     }
 
     public function test_permanent_employee_qr_duplicate_scan_does_not_create_second_attendance(): void
@@ -851,13 +913,16 @@ class AttendanceQrFlowTest extends TestCase
         $this->configureEmployeeSettings(3600);
     }
 
-    private function configureEmployeeSettings(int $ttl): void
-    {
+    private function configureEmployeeSettings(
+        int $ttl,
+        mixed $latitude = -6.81234,
+        mixed $longitude = 107.19451
+    ): void {
         $settingService = Mockery::mock(SystemSettingService::class);
-        $settingService->shouldReceive('get')->andReturnUsing(function ($key, $default = null) use ($ttl) {
+        $settingService->shouldReceive('get')->andReturnUsing(function ($key, $default = null) use ($ttl, $latitude, $longitude) {
             return match ($key) {
-                'LPK_LATITUDE' => -6.81234,
-                'LPK_LONGITUDE' => 107.19451,
+                'LPK_LATITUDE' => $latitude,
+                'LPK_LONGITUDE' => $longitude,
                 'LPK_ALLOWED_RADIUS_METERS' => 100,
                 'QR_TOKEN_TTL_SECONDS' => $ttl,
                 default => $default,
@@ -917,16 +982,18 @@ class AttendanceQrFlowTest extends TestCase
         return $studentRepo;
     }
 
-    private function studentQrSettings(): SystemSettingService
-    {
+    private function studentQrSettings(
+        mixed $latitude = -6.81234,
+        mixed $longitude = 107.19451
+    ): SystemSettingService {
         $settingService = Mockery::mock(SystemSettingService::class);
-        $settingService->shouldReceive('get')->andReturnUsing(function ($key, $default = null) {
+        $settingService->shouldReceive('get')->andReturnUsing(function ($key, $default = null) use ($latitude, $longitude) {
             return match ($key) {
-                'LPK_LATITUDE' => -6.81234,
-                'LPK_LONGITUDE' => 107.19451,
+                'LPK_LATITUDE' => $latitude,
+                'LPK_LONGITUDE' => $longitude,
                 'LPK_ALLOWED_RADIUS_METERS' => 20,
-                'WORK_START_TIME' => '06:00',
-                'WORK_END_TIME' => '08:30',
+                'STUDENT_ATTENDANCE_START_TIME' => '06:00',
+                'STUDENT_ATTENDANCE_END_TIME' => '08:30',
                 'LATE_TOLERANCE_MINUTES' => 30,
                 default => $default,
             };

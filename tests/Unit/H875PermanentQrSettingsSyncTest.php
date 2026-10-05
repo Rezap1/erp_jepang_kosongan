@@ -121,12 +121,12 @@ class H875PermanentQrSettingsSyncTest extends TestCase
         ]);
         $this->assertSame([], $errors);
 
-        $service->set('WORK_START_TIME', $prepared['WORK_START_TIME'], 'USR-MASTER');
-        $service->set('WORK_END_TIME', $prepared['WORK_END_TIME'], 'USR-MASTER');
+        $service->set('STUDENT_ATTENDANCE_START_TIME', $prepared['WORK_START_TIME'], 'USR-MASTER');
+        $service->set('STUDENT_ATTENDANCE_END_TIME', $prepared['WORK_END_TIME'], 'USR-MASTER');
         $service->clearCache();
 
-        $this->assertSame('06:30', $service->get('WORK_START_TIME'));
-        $this->assertSame('09:00', $service->get('WORK_END_TIME'));
+        $this->assertSame('06:30', $service->get('STUDENT_ATTENDANCE_START_TIME'));
+        $this->assertSame('09:00', $service->get('STUDENT_ATTENDANCE_END_TIME'));
 
         $windowService = new AttendanceWindowService($service);
         foreach (['06:30:00', '08:45:00', '09:00:00'] as $time) {
@@ -144,7 +144,7 @@ class H875PermanentQrSettingsSyncTest extends TestCase
             }
         }
 
-        $this->assertSame(['WORK_START_TIME', 'WORK_END_TIME'], $settingsRepository->updatedKeys);
+        $this->assertSame(['STUDENT_ATTENDANCE_START_TIME', 'STUDENT_ATTENDANCE_END_TIME'], $settingsRepository->updatedKeys);
     }
 
     public function test_valid_qr_and_valid_daily_window_creates_present_once(): void
@@ -274,8 +274,8 @@ class H875PermanentQrSettingsSyncTest extends TestCase
 
         $settings = Mockery::mock(SystemSettingService::class);
         $settings->shouldReceive('get')->andReturnUsing(fn (string $key, mixed $default = null): mixed => match ($key) {
-            'WORK_START_TIME' => '06:00',
-            'WORK_END_TIME' => '08:30',
+            'STUDENT_ATTENDANCE_START_TIME' => '06:00',
+            'STUDENT_ATTENDANCE_END_TIME' => '08:30',
             'LPK_LATITUDE' => '-6.81234',
             'LPK_LONGITUDE' => '107.19451',
             'LPK_ALLOWED_RADIUS_METERS' => '20',
@@ -394,6 +394,8 @@ class H875SystemSettingRepositoryFake implements SystemSettingRepositoryInterfac
         $this->rows = [
             'SET_HR_WORK_START_TIME' => $this->row('SET_HR_WORK_START_TIME', 'WORK_START_TIME', '06:00'),
             'SET_HR_WORK_END_TIME' => $this->row('SET_HR_WORK_END_TIME', 'WORK_END_TIME', '08:30'),
+            'SET_STUDENT_ATTENDANCE_START_TIME' => $this->row('SET_STUDENT_ATTENDANCE_START_TIME', 'STUDENT_ATTENDANCE_START_TIME', '06:00'),
+            'SET_STUDENT_ATTENDANCE_END_TIME' => $this->row('SET_STUDENT_ATTENDANCE_END_TIME', 'STUDENT_ATTENDANCE_END_TIME', '08:30'),
             'SET_HR_LATE_TOLERANCE' => $this->row('SET_HR_LATE_TOLERANCE', 'LATE_TOLERANCE_MINUTES', '30'),
         ];
     }
