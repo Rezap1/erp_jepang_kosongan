@@ -8,6 +8,7 @@ use App\Support\ActorIdentity;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /** Shared scheduling, targeting and presentation rules for announcements. */
 class AnnouncementService
@@ -39,13 +40,22 @@ class AnnouncementService
     public function getAll(): Collection
     {
         $rows = $this->repository->fetchAll();
+        $rows = $rows instanceof Collection ? $rows : collect($rows);
+        if ($visibility = $this->visibilityService()) {
+            return $visibility->withAudienceRelations($rows);
+        }
 
-        return $rows instanceof Collection ? $rows : collect($rows);
+        return $rows;
     }
 
     public function getById($id)
     {
-        return $this->repository->findById((string) $id);
+        $row = $this->repository->findById((string) $id);
+        if ($row && ($visibility = $this->visibilityService())) {
+            return $visibility->withAudienceRelations([(array) $row])->first();
+        }
+
+        return $row;
     }
 
     public function generateId(): string
@@ -188,12 +198,25 @@ class AnnouncementService
     public function create(array $data)
     {
         $payload = $this->preparePayload($data);
+        $canonical = $payload['__Audience_Canonical'] ?? null;
+        unset($payload['__Audience_Canonical']);
         $payload['Announcement_ID'] ??= $this->generateId();
         $payload['Created_At'] ??= $this->clock()->format('Y-m-d H:i:s');
         $payload['Created_By'] = $this->actor();
         $payload['Updated_At'] ??= $payload['Created_At'];
         $payload['Updated_By'] = $payload['Created_By'];
-        $result = $this->repository->create($payload);
+        $write = function () use ($payload, $canonical) {
+            $result = $this->repository->create($payload);
+            if ($canonical && ($visibility = $this->visibilityService())) {
+                $visibility->syncAudience((string) $payload['Announcement_ID'], $canonical);
+            }
+
+            return $result;
+        };
+        $visibility = $this->visibilityService();
+        $result = $visibility?->relationsAvailable()
+            ? DB::connection(config('wms_runtime.connection'))->transaction($write, 5)
+            : $write();
         $this->clearRepositoryCache();
 
         return $result;
@@ -206,11 +229,24 @@ class AnnouncementService
             throw new \InvalidArgumentException('Pengumuman tidak ditemukan.');
         }
         $payload = $this->preparePayload($data, (array) $existing);
+        $canonical = $payload['__Audience_Canonical'] ?? null;
+        unset($payload['__Audience_Canonical']);
         $payload['Created_By'] = $existing['Created_By'] ?? '';
         $payload['Created_At'] = $existing['Created_At'] ?? '';
         $payload['Updated_At'] = $this->clock()->format('Y-m-d H:i:s');
         $payload['Updated_By'] = $this->actor();
-        $result = $this->repository->update((string) $id, $payload);
+        $write = function () use ($id, $payload, $canonical) {
+            $result = $this->repository->update((string) $id, $payload);
+            if ($canonical && ($visibility = $this->visibilityService())) {
+                $visibility->syncAudience((string) $id, $canonical);
+            }
+
+            return $result;
+        };
+        $visibility = $this->visibilityService();
+        $result = $visibility?->relationsAvailable()
+            ? DB::connection(config('wms_runtime.connection'))->transaction($write, 5)
+            : $write();
         $this->clearRepositoryCache();
         if (method_exists($this->repository, 'findByIdFresh') && ! $this->repository->findByIdFresh((string) $id)) {
             throw new \RuntimeException('Perubahan pengumuman belum dapat dikonfirmasi.');
@@ -271,7 +307,7 @@ class AnnouncementService
         $priority = $this->normalizePriority($priorityRaw);
         $audienceRaw = $data['Audience_Type'] ?? $data['Target_Audience'] ?? $data['Target_Role'] ?? (! empty(trim((string) ($data['Class_ID'] ?? ''))) ? 'CLASS' : 'ALL_STUDENTS');
         $audienceRawUpper = strtoupper(trim((string) $audienceRaw));
-        $legacyAudienceAllowed = ['ALL', 'ALL_USERS', 'STUDENT', 'TEACHER', 'ALL_STUDENTS', 'CLASS', 'KELAS', 'CLASSROOM', 'ALL_ROLES', 'ROLE'];
+        $legacyAudienceAllowed = ['ALL', 'ALL_USERS', 'STUDENT', 'TEACHER', 'ALL_STUDENTS', 'CLASS', 'KELAS', 'CLASSROOM', 'ALL_ROLES', 'ROLE', 'SELECTED_ROLES'];
         if (! in_array($audienceRawUpper, array_merge(self::AUDIENCES, $legacyAudienceAllowed), true)) {
             throw new \InvalidArgumentException('Target audiens tidak valid.');
         }
@@ -303,7 +339,7 @@ class AnnouncementService
         }
 
         $canonical = null;
-        if (in_array($audienceRawUpper, ['ALL_ROLES', 'ROLE'], true)) {
+        if (in_array($audienceRawUpper, ['ALL_ROLES', 'ROLE', 'SELECTED_ROLES'], true)) {
             $visibility = $this->visibilityService();
             if (! $visibility) {
                 throw new \InvalidArgumentException('Target audiens tidak dapat diverifikasi.');
@@ -318,12 +354,19 @@ class AnnouncementService
     {
         $n = $this->validatePayload($data);
         $payload = $data;
+        unset($payload['Target_Roles'], $payload['Target_Class_IDs']);
         $payload['Title'] = $n['title'];
         $payload['Content'] = $n['message'];
         $payload['Message'] = $n['message'];
         $payload['Priority'] = $n['priority'];
         if ($n['canonical']) {
-            $payload = array_merge($payload, $n['canonical']);
+            $canonicalColumns = array_filter(
+                $n['canonical'],
+                fn (string $key): bool => ! str_starts_with($key, 'Audience_Role_') && $key !== 'Audience_Class_IDs',
+                ARRAY_FILTER_USE_KEY
+            );
+            $payload = array_merge($payload, $canonicalColumns);
+            $payload['__Audience_Canonical'] = $n['canonical'];
             $payload['Audience_ID'] = '';
             $payload['Target_Audience'] = $n['canonical']['Audience_Type'];
         } else {

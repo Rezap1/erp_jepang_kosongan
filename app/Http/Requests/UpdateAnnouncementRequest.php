@@ -2,14 +2,16 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\HandlesAnnouncementAudienceValidation;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
-use App\Services\Academic\AnnouncementVisibilityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateAnnouncementRequest extends FormRequest
 {
+    use HandlesAnnouncementAudienceValidation;
+
     private const TARGET_ROLES = ['ALL', 'ALL_USERS', 'TEACHER', 'STUDENT', 'CLASS', 'ALL_STUDENTS'];
 
     private const AUDIENCES = ['ALL_ROLES', 'ROLE', 'ALL_STUDENTS', 'CLASS'];
@@ -52,14 +54,7 @@ class UpdateAnnouncementRequest extends FormRequest
             'Title' => 'required|string|max:255',
             'Content' => 'required_without:Message|string',
             'Message' => 'required_without:Content|string',
-            'Target_Role' => ['nullable', 'string', 'max:100'],
-            'Target_Audience' => ['nullable', 'string', Rule::in(array_merge(self::AUDIENCES, self::TARGET_ROLES))],
-            'Audience_Type' => ['required_without_all:Target_Audience,Target_Role', 'nullable', 'string', Rule::in(self::AUDIENCES)],
-            'Target_ID' => 'nullable|string|max:100',
-            'Audience_ID' => 'nullable|string|max:100',
-            'Class_ID' => 'nullable|string|max:100',
-            'Target_Batch_ID' => 'nullable|string|max:191',
-            'Target_Class_ID' => 'nullable|string|max:191',
+            ...$this->audienceRules(),
             'Priority' => ['nullable', 'string', Rule::in(self::PRIORITIES)],
             'Status' => ['required', 'string', Rule::in(self::STATUSES)],
             'Start_At' => 'nullable|date',
@@ -91,27 +86,19 @@ class UpdateAnnouncementRequest extends FormRequest
                 }
             }
 
-            if (in_array(strtoupper((string) $this->input('Audience_Type')), ['ALL_ROLES', 'ROLE'], true)) {
-                try {
-                    app(AnnouncementVisibilityService::class)->canonicalize($this->all());
-                } catch (\InvalidArgumentException $e) {
-                    $field = str_contains(strtolower($e->getMessage()), 'kelas') ? 'Target_Class_ID'
-                        : (str_contains(strtolower($e->getMessage()), 'batch') ? 'Target_Batch_ID' : 'Target_Role');
-                    $validator->errors()->add($field, $e->getMessage());
-                }
-            }
+            $this->validateCanonicalAudience($validator);
         });
     }
 
     public function messages(): array
     {
-        return [
+        return array_merge([
             'Title.required' => 'Judul pengumuman wajib diisi.',
             'Content.required' => 'Isi pengumuman wajib diisi.',
             'Message.required' => 'Isi pengumuman wajib diisi.',
             'Expires_At.required_without' => 'Tanggal dan waktu berakhir wajib diisi.',
             'Expired_Date.required_without' => 'Tanggal dan waktu berakhir wajib diisi.',
             '*.date' => 'Format tanggal dan waktu tidak valid.',
-        ];
+        ], $this->audienceMessages());
     }
 }

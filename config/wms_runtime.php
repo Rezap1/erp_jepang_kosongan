@@ -17,6 +17,7 @@ return [
             'Audience_Type',
             'Target_Batch_ID',
             'Target_Class_ID',
+            'Student_Scope',
         ],
         'MASTER_ATTENDANCE' => [
             'Employee_ID',

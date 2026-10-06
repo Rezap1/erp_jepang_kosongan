@@ -37,7 +37,7 @@ class AnnouncementCommentsAndStickersTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        foreach (['USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_USER', 'MASTER_ROLE'] as $table) {
+        foreach (['ANNOUNCEMENT_AUDIENCE_CLASS', 'ANNOUNCEMENT_AUDIENCE_ROLE', 'USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_USER', 'MASTER_ROLE'] as $table) {
             Schema::dropIfExists($table);
         }
         Schema::create('MASTER_ROLE', function (Blueprint $table): void {

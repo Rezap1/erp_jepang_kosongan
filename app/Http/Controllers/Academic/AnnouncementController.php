@@ -122,8 +122,10 @@ class AnnouncementController extends Controller
             return redirect()->route('announcements.index')->withErrors(['error' => 'Pengumuman tidak ditemukan.']);
         }
         $this->authorizeTeacherOwnership((array) $announcement);
+        $options = $this->formOptions();
+        $options['audienceState'] = app(AnnouncementVisibilityService::class)->formState((array) $announcement);
 
-        return view('academic.announcements.edit-v2', array_merge(['announcement' => $announcement], $this->formOptions()));
+        return view('academic.announcements.edit-v2', array_merge(['announcement' => $announcement], $options));
     }
 
     public function update(UpdateAnnouncementRequest $request, $id)
@@ -190,8 +192,31 @@ class AnnouncementController extends Controller
         } catch (\Throwable) {
             $batches = collect();
         }
+        $studentRoleId = collect($roles)->firstWhere('name', 'STUDENT')['id'] ?? '';
+        $classesByBatch = $classes
+            ->map(fn ($class): array => (array) $class)
+            ->filter(fn (array $class): bool => trim((string) ($class['Class_ID'] ?? '')) !== '' && trim((string) ($class['Batch_ID'] ?? '')) !== '')
+            ->groupBy(fn (array $class): string => trim((string) $class['Batch_ID']))
+            ->map(fn ($rows) => collect($rows)->map(fn (array $class): array => [
+                'id' => trim((string) $class['Class_ID']),
+                'name' => trim((string) ($class['Class_Name'] ?? $class['Class_Code'] ?? $class['Class_ID'])),
+            ])->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all())
+            ->all();
+        foreach ($batches as $batch) {
+            $batchId = trim((string) ($batch['Batch_ID'] ?? ''));
+            if ($batchId !== '' && ! array_key_exists($batchId, $classesByBatch)) {
+                $classesByBatch[$batchId] = [];
+            }
+        }
+        $audienceState = [
+            'audience' => AnnouncementVisibilityService::SELECTED_ROLES,
+            'roles' => $studentRoleId === '' ? [] : [$studentRoleId],
+            'student_scope' => AnnouncementVisibilityService::ALL_STUDENTS,
+            'batch' => '',
+            'classes' => [],
+        ];
 
-        return compact('classes', 'roles', 'batches');
+        return compact('classes', 'roles', 'batches', 'classesByBatch', 'studentRoleId', 'audienceState');
     }
 
     protected function formatDate($date): string
