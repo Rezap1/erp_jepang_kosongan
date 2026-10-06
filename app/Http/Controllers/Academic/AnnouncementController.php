@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Academic;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAnnouncementRequest;
 use App\Http\Requests\UpdateAnnouncementRequest;
+use App\Interfaces\GoogleSheets\BatchRepositoryInterface;
+use App\Services\Academic\AnnouncementCommentService;
 use App\Services\Academic\AnnouncementService;
+use App\Services\Academic\AnnouncementVisibilityService;
 use App\Services\Core\ClassService;
 use App\Services\Core\RoleService;
 use App\Support\ActorIdentity;
@@ -56,13 +59,21 @@ class AnnouncementController extends Controller
 
     public function index(Request $request)
     {
-        $announcements = $this->managedAnnouncements()->map(function ($announcement) {
+        $announcements = $this->managedAnnouncements();
+        try {
+            $commentCounts = app(AnnouncementCommentService::class)
+                ->counts($announcements->pluck('Announcement_ID'));
+        } catch (\Throwable) {
+            $commentCounts = [];
+        }
+        $announcements = $announcements->map(function ($announcement) use ($commentCounts) {
             $announcement['Audience_Label'] = $this->announcementService->audienceLabel((array) $announcement);
             $announcement['Priority_Label'] = $this->announcementService->priorityLabel($announcement['Priority'] ?? 'NORMAL');
             $announcement['Status_Label'] = $this->announcementService->presentationStatus((array) $announcement);
             $announcement['Start_Label'] = $this->formatDate($this->announcementService->startAt((array) $announcement));
             $announcement['Expiry_Label'] = $this->formatDate($this->announcementService->expiresAt((array) $announcement));
             $announcement['Can_Manage'] = $this->canManage((array) $announcement);
+            $announcement['Comment_Count'] = $commentCounts[$announcement['Announcement_ID']] ?? 0;
 
             return $announcement;
         });
@@ -72,7 +83,7 @@ class AnnouncementController extends Controller
 
     public function create()
     {
-        return view('academic.announcements.create', ['classes' => $this->classes()]);
+        return view('academic.announcements.create', $this->formOptions());
     }
 
     public function store(StoreAnnouncementRequest $request)
@@ -112,7 +123,7 @@ class AnnouncementController extends Controller
         }
         $this->authorizeTeacherOwnership((array) $announcement);
 
-        return view('academic.announcements.edit', ['announcement' => $announcement, 'classes' => $this->classes()]);
+        return view('academic.announcements.edit-v2', array_merge(['announcement' => $announcement], $this->formOptions()));
     }
 
     public function update(UpdateAnnouncementRequest $request, $id)
@@ -162,6 +173,25 @@ class AnnouncementController extends Controller
         }
 
         return collect();
+    }
+
+    protected function formOptions(): array
+    {
+        $classes = $this->classes();
+        try {
+            $visibility = app(AnnouncementVisibilityService::class);
+            $roles = $visibility->availableRoles();
+        } catch (\Throwable) {
+            $roles = [];
+        }
+        try {
+            $batches = collect(app(BatchRepositoryInterface::class)->fetchAll())
+                ->filter(fn ($batch) => strtoupper((string) ($batch['Is_Active'] ?? 'TRUE')) !== 'FALSE')->values();
+        } catch (\Throwable) {
+            $batches = collect();
+        }
+
+        return compact('classes', 'roles', 'batches');
     }
 
     protected function formatDate($date): string

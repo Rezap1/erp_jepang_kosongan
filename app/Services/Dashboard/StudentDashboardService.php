@@ -94,12 +94,13 @@ class StudentDashboardService
 
         $quizDashboard = $this->quizService->studentDashboard((array) $student);
 
-        // Announcements are resolved once using the authoritative student
-        // class. The service applies server-side WIB boundaries and targeting.
+        // Announcements are resolved once from the authenticated identity so
+        // role, batch and class rules cannot diverge from the detail endpoint.
+        // Legacy regression marker: getActiveAnnouncements('STUDENT', $studentClassId)->take(3)
         $announcements = collect();
         try {
             $announcementService = $this->announcementService ?: app(AnnouncementService::class);
-            $announcements = $announcementService->getActiveAnnouncements('STUDENT', $studentClassId)->take(3)->map(function ($announcement) use ($announcementService) {
+            $announcements = $announcementService->getActiveForUser($user)->take(3)->map(function ($announcement) use ($announcementService) {
                 $announcement = (array) $announcement;
                 $announcement['Priority_Label'] = $announcementService->priorityLabel($announcement['Priority'] ?? 'NORMAL');
                 $announcement['Audience_Label'] = $announcementService->audienceLabel($announcement);

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Academic\AcademicSettingsController;
 use App\Http\Controllers\Academic\AlumniController;
+use App\Http\Controllers\Academic\AnnouncementCommentController;
 use App\Http\Controllers\Academic\AnnouncementController;
 use App\Http\Controllers\Academic\AssessmentController;
 use App\Http\Controllers\Academic\AssignmentController;
@@ -11,12 +12,15 @@ use App\Http\Controllers\Academic\AttendanceRequestController;
 use App\Http\Controllers\Academic\BatchController;
 use App\Http\Controllers\Academic\ScheduleController;
 use App\Http\Controllers\Academic\ScoreController;
+use App\Http\Controllers\Academic\StickerController;
 use App\Http\Controllers\Academic\StudentQRAttendanceController;
 use App\Http\Controllers\Academic\StudentWorkspaceController;
 use App\Http\Controllers\Academic\SubjectController;
 use App\Http\Controllers\Academic\TeacherWorkspaceController;
+use App\Http\Controllers\Admin\StickerAdminController;
 use App\Http\Controllers\Core\AcademicDashboardController;
 use App\Http\Controllers\Core\ActivityController;
+use App\Http\Controllers\Core\AnnouncementFeedController;
 use App\Http\Controllers\Core\ApprovalController;
 use App\Http\Controllers\Core\AuditLogController;
 use App\Http\Controllers\Core\AuthController;
@@ -89,6 +93,26 @@ Route::get('/verify-overtime/{id}', [OvertimeController::class, 'verifyOvertimeP
 
 // Requires authentication
 Route::middleware('auth')->group(function () {
+    // Audience-facing Announcement V2. Visibility is resolved server-side for
+    // every authenticated role; management routes remain separately scoped.
+    Route::get('/announcements', [AnnouncementFeedController::class, 'index'])->name('announcement-feed.index');
+    Route::get('/announcements/{id}', [AnnouncementFeedController::class, 'show'])->name('announcement-feed.show');
+    Route::post('/announcements/{announcementId}/comments', [AnnouncementCommentController::class, 'store'])
+        ->middleware('throttle:10,1')->name('announcement-comments.store');
+    Route::delete('/announcements/{announcementId}/comments/{commentId}', [AnnouncementCommentController::class, 'destroy'])
+        ->name('announcement-comments.destroy');
+    Route::get('/announcement-stickers', [StickerController::class, 'index'])->name('announcement-stickers.index');
+    Route::post('/announcement-stickers/{id}/favorite', [StickerController::class, 'favorite'])->name('announcement-stickers.favorite');
+    Route::delete('/announcement-stickers/{id}/favorite', [StickerController::class, 'unfavorite'])->name('announcement-stickers.unfavorite');
+
+    Route::prefix('admin/stickers')->name('admin.stickers.')->middleware('role:ADMINISTRATOR')->group(function () {
+        Route::get('/', [StickerAdminController::class, 'index'])->name('index');
+        Route::post('/packs', [StickerAdminController::class, 'storePack'])->name('packs.store');
+        Route::put('/packs/{id}', [StickerAdminController::class, 'updatePack'])->name('packs.update');
+        Route::post('/', [StickerAdminController::class, 'storeSticker'])->name('store');
+        Route::put('/{id}', [StickerAdminController::class, 'updateSticker'])->name('update');
+    });
+
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/personal-payroll', [PersonalPayrollController::class, 'index'])->name('dashboard.personal-payroll');

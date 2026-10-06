@@ -21,8 +21,7 @@ final class AvatarResolver
         private EmployeeRepositoryInterface $employeeRepository,
         private StudentRepositoryInterface $studentRepository,
         private EmployeeService $employeeService,
-    ) {
-    }
+    ) {}
 
     public function resolve(mixed $user = null): ?string
     {
@@ -90,6 +89,61 @@ final class AvatarResolver
         }
     }
 
+    /**
+     * Resolve a bounded user collection with one employee read, one student
+     * read, and one profile-directory scan. Intended for comment streams.
+     *
+     * @return array<string, string|null>
+     */
+    public function resolveMany(iterable $users): array
+    {
+        $items = collect($users)->map(fn ($user): array => $this->toArray($user))->values();
+        $ids = $items->pluck('User_ID')->map(fn ($id): string => trim((string) $id))->filter()->unique();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        try {
+            $employees = collect($this->employeeRepository->fetchAll())
+                ->filter(fn ($row): bool => $ids->contains(trim((string) ($row['User_ID'] ?? ''))))
+                ->keyBy(fn ($row): string => strtolower(trim((string) ($row['User_ID'] ?? ''))));
+            $students = collect($this->studentRepository->fetchAll())
+                ->filter(fn ($row): bool => $ids->contains(trim((string) ($row['User_ID'] ?? ''))))
+                ->keyBy(fn ($row): string => strtolower(trim((string) ($row['User_ID'] ?? ''))));
+            $files = collect(Storage::disk('public')->files('profiles'));
+
+            return $items->mapWithKeys(function (array $user) use ($employees, $students, $files): array {
+                $userId = trim((string) ($user['User_ID'] ?? ''));
+                $photo = $this->normalizePhoto($user['Profile_Photo'] ?? null);
+                $employee = (array) ($employees->get(strtolower($userId)) ?? []);
+                $student = (array) ($students->get(strtolower($userId)) ?? []);
+                $photo ??= $this->normalizePhoto($employee['Profile_Photo'] ?? null);
+                $photo ??= $this->normalizePhoto($student['Profile_Photo'] ?? null);
+
+                if (! $photo) {
+                    $identities = array_filter([
+                        ['employee', trim((string) ($employee['Employee_ID'] ?? ''))],
+                        ['student', trim((string) ($student['Student_ID'] ?? ''))],
+                        ['user', $userId],
+                    ], fn (array $identity): bool => $identity[1] !== '');
+                    foreach ($identities as [$prefix, $id]) {
+                        $path = $files->first(fn (string $candidate): bool => (bool) preg_match('/^'.preg_quote($prefix.'_'.$id, '/').'\.[A-Za-z0-9]+$/', basename($candidate)));
+                        if ($path) {
+                            $photo = Storage::disk('public')->url($path);
+                            break;
+                        }
+                    }
+                }
+
+                return [$userId => $photo];
+            })->all();
+        } catch (\Throwable $e) {
+            Log::warning('Bulk avatar resolution failed', ['exception' => get_class($e)]);
+
+            return $ids->mapWithKeys(fn (string $id): array => [$id => null])->all();
+        }
+    }
+
     private function findByUserId(iterable $rows, string $userId): ?array
     {
         foreach ($rows as $row) {
@@ -107,7 +161,7 @@ final class AvatarResolver
     private function findProfileFile(string $prefix, string $identifier): ?string
     {
         foreach (Storage::disk('public')->files('profiles') as $path) {
-            if (preg_match('/^' . preg_quote($prefix . '_' . $identifier, '/') . '\\.[A-Za-z0-9]+$/', basename($path))) {
+            if (preg_match('/^'.preg_quote($prefix.'_'.$identifier, '/').'\\.[A-Za-z0-9]+$/', basename($path))) {
                 return Storage::disk('public')->url($path);
             }
         }
@@ -136,11 +190,12 @@ final class AvatarResolver
         if (str_starts_with($photo, 'storage/')) {
             $photo = substr($photo, strlen('storage/'));
         }
-        if (!str_starts_with($photo, 'profiles/')) {
+        if (! str_starts_with($photo, 'profiles/')) {
             return null;
         }
 
         $disk = Storage::disk('public');
+
         return $disk->exists($photo) ? $disk->url($photo) : null;
     }
 
@@ -154,7 +209,7 @@ final class AvatarResolver
             return $user;
         }
 
-        if (!is_object($user)) {
+        if (! is_object($user)) {
             return [];
         }
 

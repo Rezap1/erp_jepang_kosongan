@@ -24,10 +24,16 @@ class AnnouncementService
 
     protected ?ClassRepositoryInterface $classRepository;
 
-    public function __construct(AnnouncementRepositoryInterface $repository, ?ClassRepositoryInterface $classRepository = null)
-    {
+    protected ?AnnouncementVisibilityService $visibility;
+
+    public function __construct(
+        AnnouncementRepositoryInterface $repository,
+        ?ClassRepositoryInterface $classRepository = null,
+        ?AnnouncementVisibilityService $visibility = null,
+    ) {
         $this->repository = $repository;
         $this->classRepository = $classRepository;
+        $this->visibility = $visibility;
     }
 
     public function getAll(): Collection
@@ -109,6 +115,27 @@ class AnnouncementService
         return $visible ? (array) $row : null;
     }
 
+    public function getActiveForUser(mixed $user, $now = null): Collection
+    {
+        $visibility = $this->visibilityService();
+        if (! $visibility) {
+            return collect();
+        }
+
+        return $visibility->visibleTo($user, $this->getActiveAnnouncements(null, null, $now));
+    }
+
+    public function getVisibleForUser(string $id, mixed $user, $now = null): ?array
+    {
+        $row = $this->getById($id);
+        if (! $row || ! $this->isCurrentlyPublished((array) $row, $now)) {
+            return null;
+        }
+        $visibility = $this->visibilityService();
+
+        return $visibility && $visibility->canView($user, (array) $row) ? (array) $row : null;
+    }
+
     public function presentationStatus(array $item, $now = null): string
     {
         if (! $this->isActiveFlag($item['Is_Active'] ?? true) || strtoupper(trim((string) ($item['Status'] ?? 'PUBLISHED'))) === 'INACTIVE') {
@@ -141,6 +168,10 @@ class AnnouncementService
 
     public function audienceLabel(array $item): string
     {
+        if ($visibility = $this->visibilityService()) {
+            return $visibility->audienceLabel($item);
+        }
+
         return $this->audienceType($item) === 'CLASS' ? 'Kelas Tertentu' : 'Semua Siswa';
     }
 
@@ -240,7 +271,7 @@ class AnnouncementService
         $priority = $this->normalizePriority($priorityRaw);
         $audienceRaw = $data['Audience_Type'] ?? $data['Target_Audience'] ?? $data['Target_Role'] ?? (! empty(trim((string) ($data['Class_ID'] ?? ''))) ? 'CLASS' : 'ALL_STUDENTS');
         $audienceRawUpper = strtoupper(trim((string) $audienceRaw));
-        $legacyAudienceAllowed = ['ALL', 'ALL_USERS', 'STUDENT', 'TEACHER', 'ALL_STUDENTS', 'CLASS', 'KELAS', 'CLASSROOM'];
+        $legacyAudienceAllowed = ['ALL', 'ALL_USERS', 'STUDENT', 'TEACHER', 'ALL_STUDENTS', 'CLASS', 'KELAS', 'CLASSROOM', 'ALL_ROLES', 'ROLE'];
         if (! in_array($audienceRawUpper, array_merge(self::AUDIENCES, $legacyAudienceAllowed), true)) {
             throw new \InvalidArgumentException('Target audiens tidak valid.');
         }
@@ -271,7 +302,16 @@ class AnnouncementService
             throw new \InvalidArgumentException('Status pengumuman tidak valid.');
         }
 
-        return compact('title', 'message', 'priority', 'audience', 'classId', 'start', 'expires', 'status');
+        $canonical = null;
+        if (in_array($audienceRawUpper, ['ALL_ROLES', 'ROLE'], true)) {
+            $visibility = $this->visibilityService();
+            if (! $visibility) {
+                throw new \InvalidArgumentException('Target audiens tidak dapat diverifikasi.');
+            }
+            $canonical = $visibility->canonicalize($data);
+        }
+
+        return compact('title', 'message', 'priority', 'audience', 'classId', 'start', 'expires', 'status', 'canonical');
     }
 
     protected function preparePayload(array $data, ?array $existing = null): array
@@ -282,11 +322,19 @@ class AnnouncementService
         $payload['Content'] = $n['message'];
         $payload['Message'] = $n['message'];
         $payload['Priority'] = $n['priority'];
-        $payload['Audience_Type'] = $n['audience'];
-        $payload['Audience_ID'] = $n['audience'] === 'CLASS' ? $n['classId'] : '';
-        $payload['Target_Audience'] = $n['audience'];
-        $payload['Target_Role'] = $n['audience'] === 'CLASS' ? 'CLASS' : 'ALL_STUDENTS';
-        $payload['Target_ID'] = $n['audience'] === 'CLASS' ? $n['classId'] : '';
+        if ($n['canonical']) {
+            $payload = array_merge($payload, $n['canonical']);
+            $payload['Audience_ID'] = '';
+            $payload['Target_Audience'] = $n['canonical']['Audience_Type'];
+        } else {
+            $payload['Audience_Type'] = $n['audience'];
+            $payload['Audience_ID'] = $n['audience'] === 'CLASS' ? $n['classId'] : '';
+            $payload['Target_Audience'] = $n['audience'];
+            $payload['Target_Role'] = $n['audience'] === 'CLASS' ? 'CLASS' : 'ALL_STUDENTS';
+            $payload['Target_ID'] = $n['audience'] === 'CLASS' ? $n['classId'] : '';
+            $payload['Target_Batch_ID'] = null;
+            $payload['Target_Class_ID'] = null;
+        }
         $payload['Start_At'] = $n['start']->format('Y-m-d H:i:s');
         $payload['Expires_At'] = $n['expires']->format('Y-m-d H:i:s');
         $payload['Publish_Date'] = $payload['Start_At'];
@@ -304,6 +352,20 @@ class AnnouncementService
 
     protected function matchesAudience(array $item, string $role, ?string $classId): bool
     {
+        $v2Type = strtoupper(trim((string) ($item['Audience_Type'] ?? '')));
+        if ($v2Type === 'ALL_ROLES') {
+            return true;
+        }
+        if ($v2Type === 'ROLE') {
+            $targetRole = strtoupper(trim((string) ($item['Target_Role'] ?? '')));
+            if ($role === '' || $role !== $targetRole) {
+                return $role === '';
+            }
+            $targetClass = trim((string) ($item['Target_Class_ID'] ?? ''));
+
+            return $targetClass === '' || ($classId !== null && $classId !== '' && hash_equals($targetClass, $classId));
+        }
+
         $audience = $this->audienceType($item);
         $legacyRole = strtoupper(trim((string) ($item['Target_Role'] ?? '')));
         if ($role === '') {
@@ -405,6 +467,35 @@ class AnnouncementService
     protected function isActiveFlag($value): bool
     {
         return $value === true || in_array(strtoupper(trim((string) $value)), ['TRUE', '1', 'YES', 'Y', 'ON'], true);
+    }
+
+    protected function isCurrentlyPublished(array $item, $now = null): bool
+    {
+        if (! $this->isActiveFlag($item['Is_Active'] ?? true)) {
+            return false;
+        }
+        if (! in_array(strtoupper(trim((string) ($item['Status'] ?? 'PUBLISHED'))), ['PUBLISHED', 'ACTIVE'], true)) {
+            return false;
+        }
+        $instant = $this->clock($now);
+        $start = $this->dateFrom($item, ['Start_At', 'Publish_Date', 'Start_Date']);
+        $expires = $this->dateFrom($item, ['Expires_At', 'Expired_Date', 'End_At', 'End_Date']);
+
+        return $expires && (! $start || ! $instant->lt($start)) && $instant->lt($expires);
+    }
+
+    protected function visibilityService(): ?AnnouncementVisibilityService
+    {
+        if ($this->visibility) {
+            return $this->visibility;
+        }
+        try {
+            return app()->bound(AnnouncementVisibilityService::class)
+                ? $this->visibility = app(AnnouncementVisibilityService::class)
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     protected function classExists(string $classId): bool

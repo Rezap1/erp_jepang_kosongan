@@ -30,8 +30,8 @@
         <div>
             <x-select id="targetFilter">
                 <option value="ALL">Semua Target</option>
-                <option value="ALL_STUDENTS">Semua Siswa</option>
-                <option value="CLASS">Kelas Tertentu</option>
+                <option value="ALL_ROLES">Semua Role</option>
+                <option value="ROLE">Role Tertentu</option>
             </x-select>
         </div>
     </div>
@@ -61,7 +61,7 @@
                 
                 <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all duration-300 filter-item group relative"
                      data-search="{{ strtolower(($ann['Title'] ?? '').($ann['Message'] ?? $ann['Content'] ?? '')) }}"
-                     data-target="{{ $ann['Audience_Label'] ?? 'Semua Siswa' }}">
+                     data-target="{{ $ann['Audience_Type'] ?? 'ROLE' }}">
                      
                     @if($ann['Can_Manage'] ?? false)
                         <div class="absolute top-4 right-4 flex gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
@@ -93,6 +93,7 @@
                     <p class="text-sm text-slate-600 line-clamp-3 leading-relaxed">
                         {{ $ann['Message'] ?? $ann['Content'] ?? '' }}
                     </p>
+                    <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-bold text-slate-500"><span>Pembuat: {{ $ann['Created_By'] ?? 'WMS' }}</span><span>💬 {{ $ann['Comment_Count'] ?? 0 }} Komentar</span></div>
                 </div>
             @endforeach
         </div>
@@ -121,10 +122,8 @@
                 let matchesTarget = false;
                 if (targetValue === 'ALL') {
                     matchesTarget = true;
-                } else if (targetValue === 'ALL_STUDENTS' && itemTarget === 'Semua Siswa') {
-                    matchesTarget = true;
                 } else {
-                    matchesTarget = targetValue === 'CLASS' && itemTarget === 'Kelas Tertentu';
+                    matchesTarget = targetValue === itemTarget;
                 }
                 
                 if (matchesSearch && matchesTarget) {

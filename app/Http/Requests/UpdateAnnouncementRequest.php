@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
+use App\Services\Academic\AnnouncementVisibilityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -11,7 +12,7 @@ class UpdateAnnouncementRequest extends FormRequest
 {
     private const TARGET_ROLES = ['ALL', 'ALL_USERS', 'TEACHER', 'STUDENT', 'CLASS', 'ALL_STUDENTS'];
 
-    private const AUDIENCES = ['ALL_STUDENTS', 'CLASS'];
+    private const AUDIENCES = ['ALL_ROLES', 'ROLE', 'ALL_STUDENTS', 'CLASS'];
 
     private const PRIORITIES = ['NORMAL', 'IMPORTANT', 'URGENT', 'Low', 'Normal', 'High', 'LOW', 'MEDIUM', 'HIGH'];
 
@@ -51,12 +52,14 @@ class UpdateAnnouncementRequest extends FormRequest
             'Title' => 'required|string|max:255',
             'Content' => 'required_without:Message|string',
             'Message' => 'required_without:Content|string',
-            'Target_Role' => ['nullable', 'string', Rule::in(self::TARGET_ROLES)],
+            'Target_Role' => ['nullable', 'string', 'max:100'],
             'Target_Audience' => ['nullable', 'string', Rule::in(array_merge(self::AUDIENCES, self::TARGET_ROLES))],
             'Audience_Type' => ['required_without_all:Target_Audience,Target_Role', 'nullable', 'string', Rule::in(self::AUDIENCES)],
             'Target_ID' => 'nullable|string|max:100',
             'Audience_ID' => 'nullable|string|max:100',
             'Class_ID' => 'nullable|string|max:100',
+            'Target_Batch_ID' => 'nullable|string|max:191',
+            'Target_Class_ID' => 'nullable|string|max:191',
             'Priority' => ['nullable', 'string', Rule::in(self::PRIORITIES)],
             'Status' => ['required', 'string', Rule::in(self::STATUSES)],
             'Start_At' => 'nullable|date',
@@ -85,6 +88,16 @@ class UpdateAnnouncementRequest extends FormRequest
                     } catch (\Throwable) {
                         $validator->errors()->add('Audience_ID', 'Kelas yang dipilih tidak dapat diverifikasi.');
                     }
+                }
+            }
+
+            if (in_array(strtoupper((string) $this->input('Audience_Type')), ['ALL_ROLES', 'ROLE'], true)) {
+                try {
+                    app(AnnouncementVisibilityService::class)->canonicalize($this->all());
+                } catch (\InvalidArgumentException $e) {
+                    $field = str_contains(strtolower($e->getMessage()), 'kelas') ? 'Target_Class_ID'
+                        : (str_contains(strtolower($e->getMessage()), 'batch') ? 'Target_Batch_ID' : 'Target_Role');
+                    $validator->errors()->add($field, $e->getMessage());
                 }
             }
         });

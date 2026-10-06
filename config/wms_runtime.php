@@ -13,6 +13,11 @@ return [
     // present in the historical Sheets header. They are additive runtime
     // metadata and are deliberately kept out of the M1 source manifest.
     'runtime_columns' => [
+        'MASTER_ANNOUNCEMENT' => [
+            'Audience_Type',
+            'Target_Batch_ID',
+            'Target_Class_ID',
+        ],
         'MASTER_ATTENDANCE' => [
             'Employee_ID',
             'User_ID',

@@ -152,6 +152,7 @@
         @else
             <!-- NON-MASTER ROLES (Original Structure with Alpine visibility wrappers) -->
             <div class="space-y-1">
+                <x-sidebar.nav-link href="{{ route('announcement-feed.index') }}" active="{{ request()->routeIs('announcement-feed.*') }}" icon="inbox">Kotak Pengumuman</x-sidebar.nav-link>
                 @if($userRole === 'ADMINISTRATOR')
                     <x-sidebar.nav-link href="{{ route('dashboard.administrator') }}" active="{{ request()->routeIs('dashboard.*') }}" icon="dashboard">Dasbor</x-sidebar.nav-link>
                     <x-sidebar.nav-link href="{{ route('finance.education-payments.index') }}" active="{{ request()->routeIs('finance.education-payments.*') }}" icon="cash">Pembayaran Pendidikan</x-sidebar.nav-link>
@@ -164,6 +165,7 @@
                     <x-sidebar.nav-link href="{{ route('attendance.qr.index') }}" active="{{ request()->routeIs('attendance.qr.*') }}" icon="qrcode">QR Presensi</x-sidebar.nav-link>
                     <x-sidebar.nav-link href="{{ route('hr.attendance.qr.scanner') }}" active="{{ request()->routeIs('hr.attendance.qr.*') }}" icon="camera">Pindai QR Pegawai</x-sidebar.nav-link>
                     <x-sidebar.nav-link href="{{ route('settings.index') }}" active="{{ request()->routeIs('settings.*') }}" icon="cog">Pengaturan Sistem</x-sidebar.nav-link>
+                    <x-sidebar.nav-link href="{{ route('admin.stickers.index') }}" active="{{ request()->routeIs('admin.stickers.*') }}" icon="sparkles">Library Stiker</x-sidebar.nav-link>
                     <x-sidebar.nav-link href="{{ route('users.index') }}" active="{{ request()->routeIs('users.*') }}" icon="users">Pengguna</x-sidebar.nav-link>
                     <x-sidebar.nav-link href="{{ route('modules.index') }}" active="{{ request()->routeIs('modules.*') }}" icon="puzzle-piece">Modul</x-sidebar.nav-link>
                     <x-sidebar.nav-link href="{{ route('announcements.index') }}" active="{{ request()->routeIs('announcements.*') }}" icon="inbox">Pengumuman</x-sidebar.nav-link>
