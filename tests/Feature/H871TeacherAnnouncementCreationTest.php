@@ -29,9 +29,9 @@ class H871TeacherAnnouncementCreationTest extends TestCase
             ['Class_ID' => 'CLS-A', 'Class_Code' => 'A', 'Class_Name' => 'Kelas A', 'Is_Active' => 'TRUE'],
             ['Class_ID' => 'CLS-B', 'Class_Code' => 'B', 'Class_Name' => 'Kelas B', 'Is_Active' => 'TRUE'],
         ]);
-        $service = new AnnouncementService($this->announcements, $this->classes);
         $this->app->instance(AnnouncementRepositoryInterface::class, $this->announcements);
         $this->app->instance(ClassRepositoryInterface::class, $this->classes);
+        $service = $this->app->make(AnnouncementService::class);
         $this->app->instance(AnnouncementService::class, $service);
 
         $classService = Mockery::mock(ClassService::class);

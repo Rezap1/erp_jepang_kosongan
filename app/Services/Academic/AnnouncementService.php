@@ -25,34 +25,31 @@ class AnnouncementService
 
     protected ?ClassRepositoryInterface $classRepository;
 
-    protected ?AnnouncementVisibilityService $visibility;
+    protected AnnouncementVisibilityService $visibility;
 
     public function __construct(
         AnnouncementRepositoryInterface $repository,
+        AnnouncementVisibilityService $visibility,
         ?ClassRepositoryInterface $classRepository = null,
-        ?AnnouncementVisibilityService $visibility = null,
     ) {
         $this->repository = $repository;
-        $this->classRepository = $classRepository;
         $this->visibility = $visibility;
+        $this->classRepository = $classRepository;
     }
 
     public function getAll(): Collection
     {
         $rows = $this->repository->fetchAll();
         $rows = $rows instanceof Collection ? $rows : collect($rows);
-        if ($visibility = $this->visibilityService()) {
-            return $visibility->withAudienceRelations($rows);
-        }
 
-        return $rows;
+        return $this->visibility->withAudienceRelations($rows);
     }
 
     public function getById($id)
     {
         $row = $this->repository->findById((string) $id);
-        if ($row && ($visibility = $this->visibilityService())) {
-            return $visibility->withAudienceRelations([(array) $row])->first();
+        if ($row) {
+            return $this->visibility->withAudienceRelations([(array) $row])->first();
         }
 
         return $row;
@@ -130,12 +127,7 @@ class AnnouncementService
 
     public function getActiveForUser(mixed $user, $now = null): Collection
     {
-        $visibility = $this->visibilityService();
-        if (! $visibility) {
-            return collect();
-        }
-
-        return $visibility->visibleTo($user, $this->getActiveAnnouncements(null, null, $now));
+        return $this->visibility->visibleTo($user, $this->getActiveAnnouncements(null, null, $now));
     }
 
     public function getVisibleForUser(string $id, mixed $user, $now = null): ?array
@@ -144,9 +136,8 @@ class AnnouncementService
         if (! $row || ! $this->isCurrentlyPublished((array) $row, $now)) {
             return null;
         }
-        $visibility = $this->visibilityService();
 
-        return $visibility && $visibility->canView($user, (array) $row) ? (array) $row : null;
+        return $this->visibility->canView($user, (array) $row) ? (array) $row : null;
     }
 
     public function presentationStatus(array $item, $now = null): string
@@ -181,11 +172,7 @@ class AnnouncementService
 
     public function audienceLabel(array $item): string
     {
-        if ($visibility = $this->visibilityService()) {
-            return $visibility->audienceLabel($item);
-        }
-
-        return $this->audienceType($item) === 'CLASS' ? 'Kelas Tertentu' : 'Semua Siswa';
+        return $this->visibility->audienceLabel($item);
     }
 
     public function startAt(array $item): ?CarbonImmutable
@@ -210,14 +197,13 @@ class AnnouncementService
         $payload['Updated_By'] = $payload['Created_By'];
         $write = function () use ($payload, $canonical) {
             $result = $this->repository->create($payload);
-            if ($canonical && ($visibility = $this->visibilityService())) {
-                $visibility->syncAudience((string) $payload['Announcement_ID'], $canonical);
+            if ($canonical) {
+                $this->visibility->syncAudience((string) $payload['Announcement_ID'], $canonical);
             }
 
             return $result;
         };
-        $visibility = $this->visibilityService();
-        $result = $visibility?->relationsAvailable()
+        $result = $this->visibility->relationsAvailable()
             ? DB::connection(config('wms_runtime.connection'))->transaction($write, 5)
             : $write();
         $this->clearRepositoryCache();
@@ -240,14 +226,13 @@ class AnnouncementService
         $payload['Updated_By'] = $this->actor();
         $write = function () use ($id, $payload, $canonical) {
             $result = $this->repository->update((string) $id, $payload);
-            if ($canonical && ($visibility = $this->visibilityService())) {
-                $visibility->syncAudience((string) $id, $canonical);
+            if ($canonical) {
+                $this->visibility->syncAudience((string) $id, $canonical);
             }
 
             return $result;
         };
-        $visibility = $this->visibilityService();
-        $result = $visibility?->relationsAvailable()
+        $result = $this->visibility->relationsAvailable()
             ? DB::connection(config('wms_runtime.connection'))->transaction($write, 5)
             : $write();
         $this->clearRepositoryCache();
@@ -343,11 +328,7 @@ class AnnouncementService
 
         $canonical = null;
         if (in_array($audienceRawUpper, ['ALL_ROLES', 'ROLE', 'SELECTED_ROLES'], true)) {
-            $visibility = $this->visibilityService();
-            if (! $visibility) {
-                throw new \InvalidArgumentException('Target audiens tidak dapat diverifikasi.');
-            }
-            $canonical = $visibility->canonicalize($data);
+            $canonical = $this->visibility->canonicalize($data);
         }
 
         return compact('title', 'message', 'priority', 'audience', 'classId', 'start', 'expires', 'status', 'canonical');
@@ -536,21 +517,7 @@ class AnnouncementService
 
     protected function isIndefiniteLegacy(array $item): bool
     {
-        return $this->visibilityService()?->isPreV2Legacy($item) === true;
-    }
-
-    protected function visibilityService(): ?AnnouncementVisibilityService
-    {
-        if ($this->visibility) {
-            return $this->visibility;
-        }
-        try {
-            return app()->bound(AnnouncementVisibilityService::class)
-                ? $this->visibility = app(AnnouncementVisibilityService::class)
-                : null;
-        } catch (\Throwable) {
-            return null;
-        }
+        return $this->visibility->isPreV2Legacy($item);
     }
 
     protected function classExists(string $classId): bool

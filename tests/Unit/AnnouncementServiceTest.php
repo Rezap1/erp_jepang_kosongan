@@ -22,7 +22,7 @@ class AnnouncementServiceTest extends TestCase
         $repo = new InMemoryAnnouncementRepository([
             $this->row('A1', '2026-10-08 08:00:00', '2026-10-09 09:00:00'),
         ]);
-        $service = new AnnouncementService($repo);
+        $service = $this->service($repo);
 
         $before = CarbonImmutable::parse('2026-10-08 07:59:59', 'Asia/Jakarta');
         $atStart = CarbonImmutable::parse('2026-10-08 08:00:00', 'Asia/Jakarta');
@@ -40,13 +40,17 @@ class AnnouncementServiceTest extends TestCase
             $this->row('URGENT', '2026-10-01 00:00:00', '2026-10-20 00:00:00', 'URGENT', 'ALL_STUDENTS'),
             $this->row('OTHER', '2026-10-01 00:00:00', '2026-10-20 00:00:00', 'URGENT', 'CLASS', 'CLS-2'),
         ]);
-        $service = new AnnouncementService($repo);
+        $service = $this->service($repo, new InMemoryClassRepository([
+            ['Class_ID' => 'CLS-1', 'Batch_ID' => 'BAT-1', 'Is_Active' => 'TRUE'],
+        ]));
         $now = CarbonImmutable::parse('2026-10-09 09:00:00', 'Asia/Jakarta');
 
         $visible = $service->getActiveAnnouncements('STUDENT', 'CLS-1', $now);
         $this->assertSame(['URGENT', 'NORMAL'], $visible->pluck('Announcement_ID')->all());
         $this->assertSame('Mendesak', $service->priorityLabel('URGENT'));
-        $this->assertSame('Kelas Tertentu', $service->audienceLabel(['Audience_Type' => 'CLASS']));
+        $this->assertStringContainsString('1 Kelas', $service->audienceLabel([
+            'Audience_Type' => 'CLASS', 'Audience_ID' => 'CLS-1',
+        ]));
     }
 
     public function test_create_normalizes_immediate_start_and_delete_deactivates(): void
@@ -54,7 +58,7 @@ class AnnouncementServiceTest extends TestCase
         $now = CarbonImmutable::parse('2026-10-08 08:00:00', 'Asia/Jakarta');
         CarbonImmutable::setTestNow($now);
         $repo = new InMemoryAnnouncementRepository;
-        $service = new AnnouncementService($repo);
+        $service = $this->service($repo);
 
         $service->create(['Title' => 'Ujian', 'Message' => 'Datang tepat waktu', 'Priority' => 'URGENT', 'Audience_Type' => 'ALL_STUDENTS', 'Expires_At' => '2026-10-09 09:00:00']);
         $this->assertSame('2026-10-08 08:00:00', $repo->rows[0]['Start_At']);
@@ -64,7 +68,7 @@ class AnnouncementServiceTest extends TestCase
 
     public function test_forged_class_is_rejected(): void
     {
-        $service = new AnnouncementService(new InMemoryAnnouncementRepository, new InMemoryClassRepository([]));
+        $service = $this->service(new InMemoryAnnouncementRepository, new InMemoryClassRepository([]));
         $this->expectException(\InvalidArgumentException::class);
         $service->create([
             'Title' => 'Rahasia Kelas', 'Message' => 'Pesan', 'Priority' => 'NORMAL',
@@ -75,7 +79,7 @@ class AnnouncementServiceTest extends TestCase
 
     public function test_expiry_must_be_after_start(): void
     {
-        $service = new AnnouncementService(new InMemoryAnnouncementRepository);
+        $service = $this->service(new InMemoryAnnouncementRepository);
         $this->expectException(\InvalidArgumentException::class);
         $service->create([
             'Title' => 'Jadwal', 'Message' => 'Pesan', 'Priority' => 'NORMAL',
@@ -92,14 +96,14 @@ class AnnouncementServiceTest extends TestCase
         $inactive['Is_Active'] = 'FALSE';
         $noExpiry = $this->row('NOEXPIRY', '2026-10-01 00:00:00', '2026-10-20 00:00:00');
         unset($noExpiry['Expires_At']);
-        $service = new AnnouncementService(new InMemoryAnnouncementRepository([$draft, $inactive, $noExpiry]));
+        $service = $this->service(new InMemoryAnnouncementRepository([$draft, $inactive, $noExpiry]));
         $this->assertCount(0, $service->getActiveAnnouncements('STUDENT', 'CLS-1', CarbonImmutable::parse('2026-10-09', 'Asia/Jakarta')));
     }
 
     public function test_student_detail_fails_closed_outside_class_scope(): void
     {
         $row = $this->row('CLASS-A', '2026-10-01 00:00:00', '2026-10-20 00:00:00', 'IMPORTANT', 'CLASS', 'CLS-A');
-        $service = new AnnouncementService(new InMemoryAnnouncementRepository([$row]));
+        $service = $this->service(new InMemoryAnnouncementRepository([$row]));
         $now = CarbonImmutable::parse('2026-10-09 09:00:00', 'Asia/Jakarta');
         $this->assertNull($service->getVisibleForStudent('CLASS-A', 'CLS-B', $now));
         $this->assertSame('CLASS-A', $service->getVisibleForStudent('CLASS-A', 'CLS-A', $now)['Announcement_ID']);
@@ -109,7 +113,7 @@ class AnnouncementServiceTest extends TestCase
     {
         $this->actingAs(new GenericUser(['id' => 'USR-TEACHER-A', 'User_ID' => 'USR-TEACHER-A']));
         $repo = new InMemoryAnnouncementRepository;
-        $service = new AnnouncementService($repo);
+        $service = $this->service($repo);
 
         $service->create([
             'Title' => 'Libur Kegiatan Belajar',
@@ -136,7 +140,7 @@ class AnnouncementServiceTest extends TestCase
         $row = $this->row('OWN', '2026-10-01 00:00:00', '2026-10-20 00:00:00');
         $row['Created_By'] = 'USR-TEACHER-A';
         $repo = new InMemoryAnnouncementRepository([$row]);
-        $service = new AnnouncementService($repo);
+        $service = $this->service($repo);
         $this->actingAs(new GenericUser(['id' => 'USR-TEACHER-A', 'User_ID' => 'USR-TEACHER-A']));
 
         $service->update('OWN', [
@@ -152,6 +156,14 @@ class AnnouncementServiceTest extends TestCase
         $this->assertSame('FALSE', $repo->rows[0]['Is_Active']);
         $this->assertSame('INACTIVE', $repo->rows[0]['Status']);
         $this->assertSame('USR-TEACHER-A', $repo->rows[0]['Updated_By']);
+    }
+
+    private function service(AnnouncementRepositoryInterface $repository, ?ClassRepositoryInterface $classes = null): AnnouncementService
+    {
+        $this->app->instance(AnnouncementRepositoryInterface::class, $repository);
+        $this->app->instance(ClassRepositoryInterface::class, $classes ?? new InMemoryClassRepository([]));
+
+        return $this->app->make(AnnouncementService::class);
     }
 
     private function row(string $id, string $start, string $expires, string $priority = 'NORMAL', string $audience = 'ALL_STUDENTS', string $classId = ''): array

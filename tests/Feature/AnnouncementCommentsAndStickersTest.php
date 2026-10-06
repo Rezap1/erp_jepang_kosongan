@@ -137,7 +137,7 @@ class AnnouncementCommentsAndStickersTest extends TestCase
                 return true;
             }
         };
-        $this->announcements = new AnnouncementService($repo, null, $visibility);
+        $this->announcements = new AnnouncementService($repo, $visibility);
         $this->comments = new AnnouncementCommentService($this->announcements, $visibility);
         $this->stickers = new StickerLibraryService;
         $this->app->instance(AnnouncementService::class, $this->announcements);

@@ -11,7 +11,6 @@ use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Services\Academic\AnnouncementService;
 use App\Services\Academic\AnnouncementVisibilityService;
 use App\Services\Core\ClassService;
-use App\Services\Core\RoleService;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -107,16 +106,17 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
         $classes->shouldReceive('findById')->zeroOrMoreTimes()->andReturnUsing(fn (string $id) => $classRows->firstWhere('Class_ID', $id));
         $classes->shouldReceive('fetchAll')->zeroOrMoreTimes()->andReturn($classRows);
 
-        $this->visibility = new AnnouncementVisibilityService(new RoleService($roleRepository), $students, $batches, $classes);
-        $this->announcements = new AnnouncementService(new HotfixAnnouncementRepository, $classes, $this->visibility);
+        $announcementRepository = new HotfixAnnouncementRepository;
         $classService = Mockery::mock(ClassService::class);
         $classService->shouldReceive('getAllClasses')->zeroOrMoreTimes()->andReturn($classRows);
+        $this->app->instance(AnnouncementRepositoryInterface::class, $announcementRepository);
         $this->app->instance(RoleRepositoryInterface::class, $roleRepository);
+        $this->app->instance(StudentRepositoryInterface::class, $students);
         $this->app->instance(BatchRepositoryInterface::class, $batches);
         $this->app->instance(ClassRepositoryInterface::class, $classes);
-        $this->app->instance(AnnouncementVisibilityService::class, $this->visibility);
-        $this->app->instance(AnnouncementService::class, $this->announcements);
         $this->app->instance(ClassService::class, $classService);
+        $this->announcements = $this->app->make(AnnouncementService::class);
+        $this->visibility = $this->app->make(AnnouncementVisibilityService::class);
         $this->actingAs($this->user('USR-ADMIN', 'ROLE-ADMINISTRATOR'));
     }
 
@@ -149,6 +149,19 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
 
     public function test_actual_create_page_and_post_use_verified_production_batch_class_contract(): void
     {
+        $this->assertFalse($this->app->bound(AnnouncementVisibilityService::class));
+        $resolvedService = $this->app->make(AnnouncementService::class);
+        $this->assertInstanceOf(AnnouncementService::class, $resolvedService);
+        $this->assertTrue($this->app->resolved(AnnouncementVisibilityService::class));
+
+        $validated = $resolvedService->validatePayload($this->payload(['ROLE-TEACHER', 'ROLE-STUDENT']));
+        $this->assertSame(AnnouncementVisibilityService::SELECTED_ROLES, $validated['canonical']['Audience_Type']);
+        $this->assertEqualsCanonicalizing(
+            ['ROLE-TEACHER', 'ROLE-STUDENT'],
+            $validated['canonical']['Audience_Role_IDs'],
+        );
+        $this->assertSame(['CLS000003'], $validated['canonical']['Audience_Class_IDs']);
+
         $response = $this->get(route('announcements.create'))->assertOk();
         $html = $response->getContent();
         foreach ([
@@ -171,7 +184,15 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
 
         $this->post(route('announcements.store'), $this->payload(['ROLE-TEACHER', 'ROLE-STUDENT']))
             ->assertRedirect(route('announcements.index'))
-            ->assertSessionHasNoErrors();
+            ->assertSessionHasNoErrors()
+            ->assertSessionMissing('error');
+        $this->assertDatabaseHas('MASTER_ANNOUNCEMENT', [
+            'Announcement_ID' => 'ANC000001',
+            'Audience_Type' => AnnouncementVisibilityService::SELECTED_ROLES,
+            'Student_Scope' => AnnouncementVisibilityService::BATCH_SELECTED_CLASSES,
+            'Target_Batch_ID' => 'BAT000002',
+            'Target_Class_ID' => 'CLS000003',
+        ]);
         $this->assertDatabaseHas('ANNOUNCEMENT_AUDIENCE_ROLE', ['Announcement_ID' => 'ANC000001', 'Role_ID' => 'ROLE-TEACHER']);
         $this->assertDatabaseHas('ANNOUNCEMENT_AUDIENCE_ROLE', ['Announcement_ID' => 'ANC000001', 'Role_ID' => 'ROLE-STUDENT']);
         $this->assertDatabaseHas('ANNOUNCEMENT_AUDIENCE_CLASS', [
