@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Academic\AnnouncementController;
 use App\Http\Requests\StoreAnnouncementRequest;
 use App\Interfaces\GoogleSheets\BatchRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\RoleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Services\Academic\AnnouncementVisibilityService;
+use App\Services\Core\ClassService;
 use App\Services\Core\RoleService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ViewErrorBag;
@@ -83,6 +85,20 @@ class AnnouncementAudienceValidationHotfixTest extends TestCase
             ->assertSessionHasErrors(['Student_Scope' => 'Pilih target siswa.']);
     }
 
+    public function test_selected_class_scope_without_a_browser_rendered_class_fails_on_the_exact_field(): void
+    {
+        $payload = $this->payload();
+        unset($payload['Target_Class_IDs']);
+
+        $this->from('/academic/announcements/create')
+            ->post('/_test/announcement-audience-validation', $payload)
+            ->assertRedirect('/academic/announcements/create')
+            ->assertSessionHasErrors(['Target_Class_IDs' => 'Pilih minimal satu kelas.']);
+
+        $this->assertSame('BAT-A', session()->getOldInput('Target_Batch_ID'));
+        $this->assertSame('BATCH_SELECTED_CLASSES', session()->getOldInput('Student_Scope'));
+    }
+
     public function test_form_has_server_hydrated_role_and_preloaded_batch_class_map(): void
     {
         view()->share('errors', new ViewErrorBag);
@@ -103,6 +119,17 @@ class AnnouncementAudienceValidationHotfixTest extends TestCase
         $this->assertStringContainsString('CLS-A1', $html);
         $this->assertStringNotContainsString('x-show="batch ===', $html);
         $this->assertStringContainsString('Target_Class_IDs[]', $html);
+        $this->assertStringContainsString('batchChanged()', $html);
+        $this->assertStringContainsString('this.classes=[]', $html);
+        $this->assertStringContainsString('selectAllRoles(){this.roles=[];this.clearStudent()}', $html);
+    }
+
+    public function test_production_container_injects_the_authoritative_class_service_into_create_controller(): void
+    {
+        $controller = $this->app->make(AnnouncementController::class);
+        $property = new \ReflectionProperty($controller, 'classService');
+
+        $this->assertInstanceOf(ClassService::class, $property->getValue($controller));
     }
 
     private function payload(): array

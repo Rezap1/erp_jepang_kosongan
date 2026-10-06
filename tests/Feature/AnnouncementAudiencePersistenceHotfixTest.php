@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Academic\AnnouncementController;
 use App\Interfaces\GoogleSheets\AnnouncementRepositoryInterface;
 use App\Interfaces\GoogleSheets\BatchRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
@@ -9,6 +10,7 @@ use App\Interfaces\GoogleSheets\RoleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Services\Academic\AnnouncementService;
 use App\Services\Academic\AnnouncementVisibilityService;
+use App\Services\Core\ClassService;
 use App\Services\Core\RoleService;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Schema\Blueprint;
@@ -52,6 +54,7 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
         $migration->up();
 
         $roles = collect([
+            ['Role_ID' => 'ROLE-ADMINISTRATOR', 'Role_Name' => 'ADMINISTRATOR', 'Is_Active' => 'TRUE'],
             ['Role_ID' => 'ROLE-HR', 'Role_Name' => 'HR', 'Is_Active' => 'TRUE'],
             ['Role_ID' => 'ROLE-FINANCE', 'Role_Name' => 'FINANCE', 'Is_Active' => 'TRUE'],
             ['Role_ID' => 'ROLE-TEACHER', 'Role_Name' => 'TEACHER', 'Is_Active' => 'TRUE'],
@@ -59,14 +62,18 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
         ]);
         DB::table('MASTER_ROLE')->insert($roles->map(fn (array $row): array => array_intersect_key($row, array_flip(['Role_ID', 'Role_Name'])))->all());
         DB::table('MASTER_BATCH')->insert([
-            ['Batch_ID' => 'BAT-A', 'Batch_Name' => 'Batch A'],
-            ['Batch_ID' => 'BAT-B', 'Batch_Name' => 'Batch B'],
+            ['Batch_ID' => 'BAT000002', 'Batch_Name' => 'ANGKATAN 4'],
+            ['Batch_ID' => 'BAT000003', 'Batch_Name' => 'ANGKATAN 3'],
+            ['Batch_ID' => 'BAT000004', 'Batch_Name' => 'ANGKATAN 2'],
+            ['Batch_ID' => 'BAT000005', 'Batch_Name' => 'ANGKATAN 1'],
         ]);
         DB::table('MASTER_CLASS')->insert([
-            ['Class_ID' => 'CLS-A1', 'Batch_ID' => 'BAT-A'],
-            ['Class_ID' => 'CLS-A2', 'Batch_ID' => 'BAT-A'],
-            ['Class_ID' => 'CLS-A3', 'Batch_ID' => 'BAT-A'],
-            ['Class_ID' => 'CLS-B1', 'Batch_ID' => 'BAT-B'],
+            ['Class_ID' => 'CLS000003', 'Batch_ID' => 'BAT000002'],
+            ['Class_ID' => 'CLS000004', 'Batch_ID' => 'BAT000003'],
+            ['Class_ID' => 'CLS000005', 'Batch_ID' => 'BAT000004'],
+            ['Class_ID' => 'CLS000006', 'Batch_ID' => 'BAT000005'],
+            ['Class_ID' => 'CLS000007', 'Batch_ID' => 'BAT000002'],
+            ['Class_ID' => 'CLS000008', 'Batch_ID' => 'BAT000002'],
         ]);
 
         $roleRepository = Mockery::mock(RoleRepositoryInterface::class);
@@ -74,17 +81,27 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
         $roleRepository->shouldReceive('findById')->zeroOrMoreTimes()->andReturnUsing(fn (string $id) => $roles->firstWhere('Role_ID', $id));
         $students = Mockery::mock(StudentRepositoryInterface::class);
         $students->shouldReceive('fetchAll')->zeroOrMoreTimes()->andReturn(collect([
-            ['User_ID' => 'USR-A1', 'Batch_ID' => 'BAT-A', 'Class_ID' => 'CLS-A1', 'Is_Active' => 'TRUE'],
-            ['User_ID' => 'USR-A3', 'Batch_ID' => 'BAT-A', 'Class_ID' => 'CLS-A3', 'Is_Active' => 'TRUE'],
-            ['User_ID' => 'USR-B1', 'Batch_ID' => 'BAT-B', 'Class_ID' => 'CLS-B1', 'Is_Active' => 'TRUE'],
+            ['User_ID' => 'USR-D', 'Batch_ID' => 'BAT000002', 'Class_ID' => 'CLS000003', 'Is_Active' => 1],
+            ['User_ID' => 'USR-D2', 'Batch_ID' => 'BAT000002', 'Class_ID' => 'CLS000007', 'Is_Active' => 1],
+            ['User_ID' => 'USR-D-OTHER', 'Batch_ID' => 'BAT000002', 'Class_ID' => 'CLS000008', 'Is_Active' => 1],
+            ['User_ID' => 'USR-C', 'Batch_ID' => 'BAT000003', 'Class_ID' => 'CLS000004', 'Is_Active' => 1],
         ]));
+        $batchRows = collect([
+            ['Batch_ID' => 'BAT000002', 'Batch_Code' => 'A4', 'Batch_Name' => 'ANGKATAN 4', 'Program_ID' => 'PRG000002', 'Batch_Status' => 'Berlangsung', 'Is_Active' => 1],
+            ['Batch_ID' => 'BAT000003', 'Batch_Code' => 'A3', 'Batch_Name' => 'ANGKATAN 3', 'Program_ID' => 'PRG000002', 'Batch_Status' => 'Berlangsung', 'Is_Active' => 1],
+            ['Batch_ID' => 'BAT000004', 'Batch_Code' => 'A2', 'Batch_Name' => 'ANGKATAN 2', 'Program_ID' => 'PRG000002', 'Batch_Status' => 'Berlangsung', 'Is_Active' => 1],
+            ['Batch_ID' => 'BAT000005', 'Batch_Code' => 'A1', 'Batch_Name' => 'ANGKATAN 1', 'Program_ID' => 'PRG000002', 'Batch_Status' => 'Berlangsung', 'Is_Active' => 1],
+        ]);
         $batches = Mockery::mock(BatchRepositoryInterface::class);
-        $batches->shouldReceive('findById')->zeroOrMoreTimes()->andReturnUsing(fn (string $id) => in_array($id, ['BAT-A', 'BAT-B'], true) ? ['Batch_ID' => $id, 'Batch_Name' => $id, 'Is_Active' => 'TRUE'] : null);
+        $batches->shouldReceive('fetchAll')->zeroOrMoreTimes()->andReturn($batchRows);
+        $batches->shouldReceive('findById')->zeroOrMoreTimes()->andReturnUsing(fn (string $id) => $batchRows->firstWhere('Batch_ID', $id));
         $classRows = collect([
-            ['Class_ID' => 'CLS-A1', 'Batch_ID' => 'BAT-A', 'Is_Active' => 'TRUE'],
-            ['Class_ID' => 'CLS-A2', 'Batch_ID' => 'BAT-A', 'Is_Active' => 'TRUE'],
-            ['Class_ID' => 'CLS-A3', 'Batch_ID' => 'BAT-A', 'Is_Active' => 'TRUE'],
-            ['Class_ID' => 'CLS-B1', 'Batch_ID' => 'BAT-B', 'Is_Active' => 'TRUE'],
+            ['Class_ID' => 'CLS000003', 'Class_Code' => 'KLS-D', 'Class_Name' => 'KELAS D', 'Batch_ID' => 'BAT000002', 'Program_ID' => 'PRG000002', 'Class_Status' => 'Aktif', 'Is_Active' => 1],
+            ['Class_ID' => 'CLS000004', 'Class_Code' => 'KLS-C', 'Class_Name' => 'KELAS C', 'Batch_ID' => 'BAT000003', 'Program_ID' => 'PRG000002', 'Class_Status' => 'Aktif', 'Is_Active' => 1],
+            ['Class_ID' => 'CLS000005', 'Class_Code' => 'KLS-B', 'Class_Name' => 'KELAS B', 'Batch_ID' => 'BAT000004', 'Program_ID' => 'PRG000002', 'Class_Status' => 'Aktif', 'Is_Active' => 1],
+            ['Class_ID' => 'CLS000006', 'Class_Code' => 'KLS-A', 'Class_Name' => 'KELAS A', 'Batch_ID' => 'BAT000005', 'Program_ID' => 'PRG000002', 'Class_Status' => 'Aktif', 'Is_Active' => 1],
+            ['Class_ID' => 'CLS000007', 'Class_Code' => 'KLS-D2', 'Class_Name' => 'KELAS D2', 'Batch_ID' => 'BAT000002', 'Program_ID' => 'PRG000002', 'Class_Status' => 'Aktif', 'Is_Active' => 1],
+            ['Class_ID' => 'CLS000008', 'Class_Code' => 'KLS-D3', 'Class_Name' => 'KELAS D3', 'Batch_ID' => 'BAT000002', 'Program_ID' => 'PRG000002', 'Class_Status' => 'Aktif', 'Is_Active' => 1],
         ]);
         $classes = Mockery::mock(ClassRepositoryInterface::class);
         $classes->shouldReceive('findById')->zeroOrMoreTimes()->andReturnUsing(fn (string $id) => $classRows->firstWhere('Class_ID', $id));
@@ -92,7 +109,15 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
 
         $this->visibility = new AnnouncementVisibilityService(new RoleService($roleRepository), $students, $batches, $classes);
         $this->announcements = new AnnouncementService(new HotfixAnnouncementRepository, $classes, $this->visibility);
-        $this->actingAs($this->user('USR-HR', 'ROLE-HR'));
+        $classService = Mockery::mock(ClassService::class);
+        $classService->shouldReceive('getAllClasses')->zeroOrMoreTimes()->andReturn($classRows);
+        $this->app->instance(RoleRepositoryInterface::class, $roleRepository);
+        $this->app->instance(BatchRepositoryInterface::class, $batches);
+        $this->app->instance(ClassRepositoryInterface::class, $classes);
+        $this->app->instance(AnnouncementVisibilityService::class, $this->visibility);
+        $this->app->instance(AnnouncementService::class, $this->announcements);
+        $this->app->instance(ClassService::class, $classService);
+        $this->actingAs($this->user('USR-ADMIN', 'ROLE-ADMINISTRATOR'));
     }
 
     protected function tearDown(): void
@@ -106,20 +131,68 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
         $this->announcements->create($this->payload(['ROLE-HR', 'ROLE-TEACHER', 'ROLE-STUDENT']));
 
         $this->assertSame(3, DB::table('ANNOUNCEMENT_AUDIENCE_ROLE')->where('Announcement_ID', 'ANC000001')->count());
-        $this->assertSame(['CLS-A1', 'CLS-A2'], DB::table('ANNOUNCEMENT_AUDIENCE_CLASS')->where('Announcement_ID', 'ANC000001')->orderBy('Class_ID')->pluck('Class_ID')->all());
+        $this->assertSame(['CLS000003'], DB::table('ANNOUNCEMENT_AUDIENCE_CLASS')->where('Announcement_ID', 'ANC000001')->orderBy('Class_ID')->pluck('Class_ID')->all());
         $this->assertDatabaseHas('MASTER_ANNOUNCEMENT', [
             'Announcement_ID' => 'ANC000001', 'Audience_Type' => 'SELECTED_ROLES',
             'Target_Role' => 'HR', 'Student_Scope' => 'BATCH_SELECTED_CLASSES',
         ]);
 
         $this->assertCount(1, $this->announcements->getActiveForUser($this->user('USR-HR', 'ROLE-HR')));
-        $this->assertCount(1, $this->announcements->getActiveForUser($this->user('USR-A1', 'ROLE-STUDENT')));
-        $this->assertCount(0, $this->announcements->getActiveForUser($this->user('USR-A3', 'ROLE-STUDENT')));
-        $this->assertCount(0, $this->announcements->getActiveForUser($this->user('USR-B1', 'ROLE-STUDENT')));
+        $this->assertCount(1, $this->announcements->getActiveForUser($this->user('USR-D', 'ROLE-STUDENT')));
+        $this->assertCount(0, $this->announcements->getActiveForUser($this->user('USR-D-OTHER', 'ROLE-STUDENT')));
+        $this->assertCount(0, $this->announcements->getActiveForUser($this->user('USR-C', 'ROLE-STUDENT')));
         $this->assertCount(0, $this->announcements->getActiveForUser($this->user('USR-HR', 'ROLE-FINANCE')));
         $this->assertNotNull($this->announcements->getVisibleForUser('ANC000001', $this->user('USR-HR', 'ROLE-HR')));
         $this->assertNull($this->announcements->getVisibleForUser('ANC000001', $this->user('USR-HR', 'ROLE-FINANCE')));
-        $this->assertNull($this->announcements->getVisibleForUser('ANC000001', $this->user('USR-A3', 'ROLE-STUDENT')));
+        $this->assertNull($this->announcements->getVisibleForUser('ANC000001', $this->user('USR-D-OTHER', 'ROLE-STUDENT')));
+    }
+
+    public function test_actual_create_page_and_post_use_verified_production_batch_class_contract(): void
+    {
+        $response = $this->get(route('announcements.create'))->assertOk();
+        $html = $response->getContent();
+        foreach ([
+            ['BAT000002', 'CLS000003', 'KELAS D'],
+            ['BAT000003', 'CLS000004', 'KELAS C'],
+            ['BAT000004', 'CLS000005', 'KELAS B'],
+            ['BAT000005', 'CLS000006', 'KELAS A'],
+        ] as [$batchId, $classId, $className]) {
+            $this->assertStringContainsString($batchId, $html);
+            $this->assertStringContainsString($classId, $html);
+            $this->assertStringContainsString($className, $html);
+        }
+
+        $view = $this->app->make(AnnouncementController::class)->create();
+        $map = $view->getData()['classesByBatch'];
+        $this->assertSame(['CLS000003', 'CLS000007', 'CLS000008'], array_column($map['BAT000002'], 'id'));
+        $this->assertSame(['CLS000004'], array_column($map['BAT000003'], 'id'));
+        $this->assertSame(['CLS000005'], array_column($map['BAT000004'], 'id'));
+        $this->assertSame(['CLS000006'], array_column($map['BAT000005'], 'id'));
+
+        $this->post(route('announcements.store'), $this->payload(['ROLE-TEACHER', 'ROLE-STUDENT']))
+            ->assertRedirect(route('announcements.index'))
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('ANNOUNCEMENT_AUDIENCE_ROLE', ['Announcement_ID' => 'ANC000001', 'Role_ID' => 'ROLE-TEACHER']);
+        $this->assertDatabaseHas('ANNOUNCEMENT_AUDIENCE_ROLE', ['Announcement_ID' => 'ANC000001', 'Role_ID' => 'ROLE-STUDENT']);
+        $this->assertDatabaseHas('ANNOUNCEMENT_AUDIENCE_CLASS', [
+            'Announcement_ID' => 'ANC000001', 'Batch_ID' => 'BAT000002', 'Class_ID' => 'CLS000003',
+        ]);
+    }
+
+    public function test_actual_post_supports_multiple_classes_and_isolates_other_class(): void
+    {
+        $payload = $this->payload(['ROLE-HR', 'ROLE-TEACHER', 'ROLE-STUDENT']);
+        $payload['Target_Class_IDs'] = ['CLS000003', 'CLS000007'];
+
+        $this->post(route('announcements.store'), $payload)
+            ->assertRedirect(route('announcements.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(['CLS000003', 'CLS000007'], DB::table('ANNOUNCEMENT_AUDIENCE_CLASS')
+            ->where('Announcement_ID', 'ANC000001')->orderBy('Class_ID')->pluck('Class_ID')->all());
+        $this->assertCount(1, $this->announcements->getActiveForUser($this->user('USR-D', 'ROLE-STUDENT')));
+        $this->assertCount(1, $this->announcements->getActiveForUser($this->user('USR-D2', 'ROLE-STUDENT')));
+        $this->assertCount(0, $this->announcements->getActiveForUser($this->user('USR-D-OTHER', 'ROLE-STUDENT')));
     }
 
     public function test_edit_hydrates_relations_and_clears_student_then_all_role_state(): void
@@ -127,9 +200,16 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
         $this->announcements->create($this->payload(['ROLE-TEACHER', 'ROLE-STUDENT']));
         $state = $this->visibility->formState($this->announcements->getById('ANC000001'));
         $this->assertEqualsCanonicalizing(['ROLE-TEACHER', 'ROLE-STUDENT'], $state['roles']);
-        $this->assertSame(['CLS-A1', 'CLS-A2'], $state['classes']);
+        $this->assertSame(['CLS000003'], $state['classes']);
 
-        $this->announcements->update('ANC000001', $this->payload(['ROLE-HR', 'ROLE-FINANCE'], null, null, []));
+        $this->get(route('announcements.edit', 'ANC000001'))
+            ->assertOk()
+            ->assertSee('CLS000003')
+            ->assertSee('BAT000002');
+
+        $this->put(route('announcements.update', 'ANC000001'), $this->payload(['ROLE-HR', 'ROLE-FINANCE'], null, null, []))
+            ->assertRedirect(route('announcements.index'))
+            ->assertSessionHasNoErrors();
         $this->assertSame(2, DB::table('ANNOUNCEMENT_AUDIENCE_ROLE')->where('Announcement_ID', 'ANC000001')->count());
         $this->assertSame(0, DB::table('ANNOUNCEMENT_AUDIENCE_CLASS')->where('Announcement_ID', 'ANC000001')->count());
         $this->assertDatabaseHas('MASTER_ANNOUNCEMENT', [
@@ -148,7 +228,7 @@ class AnnouncementAudiencePersistenceHotfixTest extends TestCase
         ]);
     }
 
-    private function payload(array $roles, ?string $scope = 'BATCH_SELECTED_CLASSES', ?string $batch = 'BAT-A', array $classes = ['CLS-A1', 'CLS-A2']): array
+    private function payload(array $roles, ?string $scope = 'BATCH_SELECTED_CLASSES', ?string $batch = 'BAT000002', array $classes = ['CLS000003']): array
     {
         return [
             'Title' => 'Hotfix Audience', 'Message' => 'Isi pengumuman.',

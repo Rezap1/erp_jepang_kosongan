@@ -309,6 +309,29 @@ final class AnnouncementVisibilityService
         return implode(', ', $labels);
     }
 
+    /**
+     * Pre-V2 rows had only Target_Role/Target_ID. The historical reader treated
+     * an empty Target_Role or ALL as global, STUDENT/ALL_STUDENTS as students,
+     * TEACHER as teachers, and CLASS as the class stored in Target_ID.
+     */
+    public function isPreV2Legacy(array $announcement): bool
+    {
+        if (trim((string) ($announcement['Audience_Type'] ?? '')) !== '') {
+            return false;
+        }
+
+        $roles = $announcement['_Audience_Roles'] ?? [];
+        $classes = $announcement['_Audience_Classes'] ?? [];
+        if ((is_iterable($roles) && collect($roles)->isNotEmpty())
+            || (is_iterable($classes) && collect($classes)->isNotEmpty())) {
+            return false;
+        }
+
+        return in_array(strtoupper(trim((string) ($announcement['Target_Role'] ?? ''))), [
+            '', 'ALL', 'ALL_USERS', 'TEACHER', 'STUDENT', 'ALL_STUDENTS', 'CLASS',
+        ], true);
+    }
+
     public function relationsAvailable(): bool
     {
         if ($this->relationsReady !== null) {
@@ -397,6 +420,9 @@ final class AnnouncementVisibilityService
     {
         $type = strtoupper(trim((string) ($announcement['Audience_Type'] ?? '')));
         $legacyRole = strtoupper(trim((string) ($announcement['Target_Role'] ?? '')));
+        if ($this->isPreV2Legacy($announcement) && $legacyRole === '') {
+            return $this->emptyTarget(self::ALL_ROLES);
+        }
         if ($type === self::ALL_ROLES || in_array($legacyRole, ['ALL', 'ALL_USERS'], true)) {
             return $this->emptyTarget(self::ALL_ROLES);
         }

@@ -14,8 +14,12 @@ class AnnouncementCommentController extends Controller
     {
         $data = $request->validate([
             'Comment_Type' => 'required|in:TEXT,STICKER',
-            'Comment_Text' => 'nullable|string|max:'.AnnouncementCommentService::MAX_TEXT_LENGTH,
-            'Sticker_ID' => 'nullable|string|max:191',
+            'Comment_Text' => 'required_if:Comment_Type,TEXT|nullable|string|max:'.AnnouncementCommentService::MAX_TEXT_LENGTH,
+            'Sticker_ID' => 'required_if:Comment_Type,STICKER|nullable|string|max:191',
+        ], [
+            'Comment_Text.required_if' => 'Komentar tidak boleh kosong.',
+            'Comment_Text.max' => 'Komentar maksimal '.AnnouncementCommentService::MAX_TEXT_LENGTH.' karakter.',
+            'Sticker_ID.required_if' => 'Pilih stiker yang akan dikirim.',
         ]);
 
         if ($data['Comment_Type'] === 'TEXT') {

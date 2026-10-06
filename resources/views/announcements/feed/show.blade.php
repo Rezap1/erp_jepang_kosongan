@@ -33,7 +33,9 @@
         <div class="border-t border-slate-200 bg-slate-50 p-4 sm:p-6">
             <form id="commentComposer" action="{{ route('announcement-comments.store', $announcement['Announcement_ID']) }}" method="POST" class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-50">@csrf
                 <input type="hidden" name="Comment_Type" value="TEXT"><input type="hidden" name="Sticker_ID" value="">
-                <label for="commentText" class="sr-only">Tulis komentar</label><textarea id="commentText" name="Comment_Text" rows="3" maxlength="2000" required placeholder="Tulis komentar..." class="w-full resize-none border-0 p-2 text-sm leading-6 focus:ring-0"></textarea>
+                <label for="commentText" class="sr-only">Tulis komentar</label><textarea id="commentText" name="Comment_Text" rows="3" maxlength="2000" required placeholder="Tulis komentar..." class="w-full resize-none border-0 p-2 text-sm leading-6 focus:ring-0">{{ old('Comment_Text') }}</textarea>
+                @error('Comment_Text')<p class="px-2 pb-1 text-sm font-semibold text-rose-600">{{ $message }}</p>@enderror
+                @error('Sticker_ID')<p class="px-2 pb-1 text-sm font-semibold text-rose-600">{{ $message }}</p>@enderror
                 <div class="mt-2 flex items-center justify-between gap-3"><button type="button" onclick="document.getElementById('stickerDialog').showModal()" class="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-slate-600 hover:bg-slate-100" aria-label="Buka pilihan stiker">☺ Stiker</button><button type="submit" class="inline-flex min-h-11 items-center rounded-xl bg-emerald-600 px-5 text-sm font-black text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60">Kirim</button></div>
             </form>
         </div>

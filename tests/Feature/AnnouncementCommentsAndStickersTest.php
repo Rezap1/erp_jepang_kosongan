@@ -11,6 +11,7 @@ use App\Services\Academic\AnnouncementCommentService;
 use App\Services\Academic\AnnouncementService;
 use App\Services\Academic\AnnouncementVisibilityService;
 use App\Services\Academic\StickerLibraryService;
+use App\Services\Core\GlobalSearchService;
 use App\Services\Core\RoleService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\GenericUser;
@@ -19,6 +20,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\ViewErrorBag;
 use Mockery;
 use Tests\TestCase;
 
@@ -27,6 +29,8 @@ class AnnouncementCommentsAndStickersTest extends TestCase
     private AnnouncementCommentService $comments;
 
     private StickerLibraryService $stickers;
+
+    private AnnouncementService $announcements;
 
     private GenericUser $student;
 
@@ -37,7 +41,7 @@ class AnnouncementCommentsAndStickersTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        foreach (['ANNOUNCEMENT_AUDIENCE_CLASS', 'ANNOUNCEMENT_AUDIENCE_ROLE', 'USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_USER', 'MASTER_ROLE'] as $table) {
+        foreach (['ANNOUNCEMENT_AUDIENCE_CLASS', 'ANNOUNCEMENT_AUDIENCE_ROLE', 'USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_CLASS', 'MASTER_BATCH', 'MASTER_USER', 'MASTER_ROLE'] as $table) {
             Schema::dropIfExists($table);
         }
         Schema::create('MASTER_ROLE', function (Blueprint $table): void {
@@ -50,12 +54,21 @@ class AnnouncementCommentsAndStickersTest extends TestCase
             $table->string('Full_Name')->nullable();
             $table->string('Username')->nullable();
         });
+        Schema::create('MASTER_BATCH', function (Blueprint $table): void {
+            $table->string('Batch_ID')->primary();
+            $table->string('Batch_Name');
+        });
+        Schema::create('MASTER_CLASS', function (Blueprint $table): void {
+            $table->string('Class_ID')->primary();
+            $table->string('Batch_ID');
+        });
         Schema::create('MASTER_ANNOUNCEMENT', function (Blueprint $table): void {
             $table->string('Announcement_ID')->primary();
             $table->string('Target_Role')->nullable();
             $table->string('Target_ID')->nullable();
         });
         (require database_path('migrations/wms_mysql/2026_10_06_000001_add_announcement_v2.php'))->up();
+        (require database_path('migrations/wms_mysql/2026_10_06_000002_add_announcement_multi_audience.php'))->up();
         DB::table('MASTER_ROLE')->insert([
             ['Role_ID' => 'ROLE-STUDENT', 'Role_Name' => 'STUDENT'], ['Role_ID' => 'ROLE-HR', 'Role_Name' => 'HR'], ['Role_ID' => 'ROLE-ADMINISTRATOR', 'Role_Name' => 'ADMINISTRATOR'],
         ]);
@@ -64,7 +77,11 @@ class AnnouncementCommentsAndStickersTest extends TestCase
             ['User_ID' => 'USR-HR', 'Role_ID' => 'ROLE-HR', 'Full_Name' => 'HR A', 'Username' => 'hr'],
             ['User_ID' => 'USR-ADMIN', 'Role_ID' => 'ROLE-ADMINISTRATOR', 'Full_Name' => 'Admin', 'Username' => 'admin'],
         ]);
-        DB::table('MASTER_ANNOUNCEMENT')->insert(['Announcement_ID' => 'ANC-1', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT']);
+        DB::table('MASTER_ANNOUNCEMENT')->insert([
+            ['Announcement_ID' => 'ANC-1', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT'],
+            ['Announcement_ID' => 'ANC-LEGACY', 'Audience_Type' => null, 'Target_Role' => 'STUDENT'],
+            ['Announcement_ID' => 'ANC-INACTIVE', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT'],
+        ]);
         DB::table('MASTER_STICKER_PACK')->insert(['Sticker_Pack_ID' => 'PACK-1', 'Name' => 'Reaksi', 'Is_Active' => true, 'Sort_Order' => 0]);
         DB::table('MASTER_STICKER')->insert([
             ['Sticker_ID' => 'STK-1', 'Sticker_Pack_ID' => 'PACK-1', 'Name' => 'Semangat', 'File_Path' => 'stickers/test.webp', 'Mime_Type' => 'image/webp', 'File_Size' => 100, 'Is_Active' => true, 'Sort_Order' => 0],
@@ -87,12 +104,17 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         {
             public function fetchAll()
             {
-                return collect([$this->findById('ANC-1')]);
+                return collect([$this->findById('ANC-1'), $this->findById('ANC-LEGACY'), $this->findById('ANC-INACTIVE')]);
             }
 
             public function findById(string $id)
             {
-                return $id === 'ANC-1' ? ['Announcement_ID' => 'ANC-1', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT', 'Title' => 'Tes', 'Content' => 'Isi', 'Is_Active' => 'TRUE', 'Status' => 'PUBLISHED', 'Publish_Date' => '2020-01-01', 'Expired_Date' => '2099-01-01'] : null;
+                return match ($id) {
+                    'ANC-1' => ['Announcement_ID' => 'ANC-1', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT', 'Title' => 'Tes', 'Content' => 'Isi', 'Is_Active' => 'TRUE', 'Status' => 'PUBLISHED', 'Publish_Date' => '2020-01-01', 'Expired_Date' => '2099-01-01'],
+                    'ANC-LEGACY' => ['Announcement_ID' => 'ANC-LEGACY', 'Audience_Type' => null, 'Target_Role' => 'STUDENT', 'Target_ID' => null, 'Title' => 'Pengumuman Lama Admin', 'Content' => 'Isi lama', 'Is_Active' => 'TRUE', 'Publish_Date' => '2020-01-01', 'Expired_Date' => null, 'Created_By' => 'USR-ADMIN'],
+                    'ANC-INACTIVE' => ['Announcement_ID' => 'ANC-INACTIVE', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT', 'Title' => 'Nonaktif', 'Content' => 'Isi', 'Is_Active' => 'FALSE', 'Status' => 'INACTIVE', 'Publish_Date' => '2020-01-01', 'Expired_Date' => '2099-01-01'],
+                    default => null,
+                };
             }
 
             public function generateNewId(string $prefix, int $padding = 6): string
@@ -115,9 +137,10 @@ class AnnouncementCommentsAndStickersTest extends TestCase
                 return true;
             }
         };
-        $announcements = new AnnouncementService($repo, null, $visibility);
-        $this->comments = new AnnouncementCommentService($announcements, $visibility);
+        $this->announcements = new AnnouncementService($repo, null, $visibility);
+        $this->comments = new AnnouncementCommentService($this->announcements, $visibility);
         $this->stickers = new StickerLibraryService;
+        $this->app->instance(AnnouncementService::class, $this->announcements);
         $this->app->instance(AnnouncementCommentService::class, $this->comments);
         $this->app->instance(StickerLibraryService::class, $this->stickers);
         $this->student = new GenericUser(['id' => 'USR-STUDENT', 'User_ID' => 'USR-STUDENT', 'Role_ID' => 'ROLE-STUDENT']);
@@ -136,6 +159,39 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         $this->comments->createText('ANC-1', $this->outsider, 'Tidak boleh');
     }
 
+    public function test_pre_v2_admin_announcement_without_relation_rows_or_expiry_uses_historical_audience_for_comments(): void
+    {
+        $this->assertNotNull($this->announcements->getVisibleForUser('ANC-LEGACY', $this->student));
+        $this->assertCount(1, $this->announcements->getActiveForUser($this->student)->where('Announcement_ID', 'ANC-LEGACY'));
+
+        $this->actingAs($this->student)
+            ->get(route('announcement-feed.show', 'ANC-LEGACY'))
+            ->assertOk()
+            ->assertSee('Pengumuman Lama Admin');
+        $search = $this->app->make(GlobalSearchService::class)
+            ->search('Pengumuman Lama Admin', 'STUDENT', 'USR-STUDENT');
+        $this->assertSame('Pengumuman Lama Admin', $search['Pengumuman'][0]['title'] ?? null);
+        $this->post(route('announcement-comments.store', 'ANC-LEGACY'), [
+            'Comment_Type' => 'TEXT', 'Comment_Text' => 'Komentar pada pengumuman lama.',
+        ])->assertRedirect();
+        $this->post(route('announcement-comments.store', 'ANC-LEGACY'), [
+            'Comment_Type' => 'STICKER', 'Sticker_ID' => 'STK-1',
+        ])->assertRedirect();
+        $this->assertSame(2, $this->comments->counts(['ANC-LEGACY'])['ANC-LEGACY']);
+        $legacyTextId = (string) DB::table('ANNOUNCEMENT_COMMENT')
+            ->where('Announcement_ID', 'ANC-LEGACY')->where('Comment_Type', 'TEXT')->value('Comment_ID');
+        $this->delete(route('announcement-comments.destroy', ['ANC-LEGACY', $legacyTextId]))->assertRedirect();
+        $this->assertSame(1, $this->comments->counts(['ANC-LEGACY'])['ANC-LEGACY']);
+
+        $this->actingAs($this->outsider)
+            ->get(route('announcement-feed.show', 'ANC-LEGACY'))
+            ->assertForbidden();
+        $this->post(route('announcement-comments.store', 'ANC-LEGACY'), [
+            'Comment_Type' => 'TEXT', 'Comment_Text' => 'Tidak boleh.',
+        ])->assertForbidden();
+        $this->assertSame(1, DB::table('ANNOUNCEMENT_COMMENT')->where('Announcement_ID', 'ANC-LEGACY')->whereNull('Deleted_At')->count());
+    }
+
     public function test_comment_integrity_delete_policy_and_soft_delete_count(): void
     {
         foreach (['   ', str_repeat('a', 2001)] as $invalid) {
@@ -150,8 +206,14 @@ class AnnouncementCommentsAndStickersTest extends TestCase
             $this->fail('Inactive sticker accepted');
         } catch (\InvalidArgumentException) {
         }
+        try {
+            $this->comments->createText('ANC-INACTIVE', $this->student, 'Tidak boleh');
+            $this->fail('Inactive announcement accepted a comment');
+        } catch (AuthorizationException) {
+        }
         $id = $this->comments->createText('ANC-1', $this->student, '<script>alert(1)</script>');
         $this->actingAs($this->student);
+        view()->share('errors', new ViewErrorBag);
         $rendered = view('announcements.feed.show', [
             'announcement' => ['Announcement_ID' => 'ANC-1', 'Title' => 'Tes', 'Creator_Name' => 'Admin', 'Start_Label' => '-', 'Expiry_Label' => '-', 'Audience_Label' => 'Student', 'Content' => 'Isi'],
             'comments' => $this->comments->paginate('ANC-1', $this->student), 'library' => $this->stickers->picker('USR-STUDENT'),
@@ -164,6 +226,54 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         }
         $this->comments->delete('ANC-1', $id, $this->admin);
         $this->assertSame([], $this->comments->counts(['ANC-1']));
+    }
+
+    public function test_comment_http_validation_owner_delete_and_exactly_once_insert(): void
+    {
+        $this->actingAs($this->student);
+        $this->from(route('announcement-feed.show', 'ANC-1'))->post(route('announcement-comments.store', 'ANC-1'), [
+            'Comment_Type' => 'TEXT', 'Comment_Text' => '   ',
+        ])->assertRedirect(route('announcement-feed.show', 'ANC-1'))
+            ->assertSessionHasErrors(['Comment_Text' => 'Komentar tidak boleh kosong.']);
+        $this->get(route('announcement-feed.show', 'ANC-1'))
+            ->assertOk()->assertSee('Komentar tidak boleh kosong.');
+        $this->post(route('announcement-comments.store', 'ANC-1'), [
+            'Comment_Type' => 'TEXT', 'Comment_Text' => str_repeat('a', 2001),
+        ])->assertSessionHasErrors(['Comment_Text' => 'Komentar maksimal 2000 karakter.']);
+        $this->post(route('announcement-comments.store', 'ANC-1'), [
+            'Comment_Type' => 'STICKER', 'Sticker_ID' => '',
+        ])->assertSessionHasErrors(['Sticker_ID' => 'Pilih stiker yang akan dikirim.']);
+        $this->assertSame(0, DB::table('ANNOUNCEMENT_COMMENT')->count());
+
+        $this->post(route('announcement-comments.store', 'ANC-1'), [
+            'Comment_Type' => 'TEXT', 'Comment_Text' => 'Tersimpan tepat sekali.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(1, DB::table('ANNOUNCEMENT_COMMENT')->count());
+        $commentId = (string) DB::table('ANNOUNCEMENT_COMMENT')->value('Comment_ID');
+
+        $this->delete(route('announcement-comments.destroy', ['ANC-1', $commentId]))->assertRedirect();
+        $this->assertSame([], $this->comments->counts(['ANC-1']));
+        $this->assertNotNull(DB::table('ANNOUNCEMENT_COMMENT')->where('Comment_ID', $commentId)->value('Deleted_At'));
+    }
+
+    public function test_comment_pagination_and_inactive_historical_sticker_remain_safe(): void
+    {
+        for ($index = 1; $index <= 26; $index++) {
+            $this->comments->createText('ANC-1', $this->student, 'Komentar '.$index);
+        }
+        DB::table('ANNOUNCEMENT_COMMENT')->insert([
+            'Comment_ID' => 'CMT-HISTORICAL-STICKER', 'Announcement_ID' => 'ANC-1', 'User_ID' => 'USR-STUDENT',
+            'Comment_Type' => 'STICKER', 'Comment_Text' => null, 'Sticker_ID' => 'STK-OFF',
+            'Created_At' => '2098-01-01 00:00:00', 'Updated_At' => '2098-01-01 00:00:00', 'Deleted_At' => null,
+        ]);
+
+        $firstPage = $this->comments->paginate('ANC-1', $this->student);
+        $this->assertSame(27, $firstPage->total());
+        $this->assertCount(25, $firstPage->items());
+        request()->query->set('page', 2);
+        $secondPage = $this->comments->paginate('ANC-1', $this->student);
+        $this->assertCount(2, $secondPage->items());
+        $this->assertTrue(collect($secondPage->items())->contains(fn ($row): bool => $row->Comment_ID === 'CMT-HISTORICAL-STICKER' && str_contains((string) $row->Sticker_URL, 'stickers/off.webp')));
     }
 
     public function test_favorites_are_idempotent_isolated_and_reversible(): void

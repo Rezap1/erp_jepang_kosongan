@@ -81,9 +81,12 @@ class AnnouncementService
 
                 $start = $this->dateFrom($item, ['Start_At', 'Publish_Date', 'Start_Date']);
                 $expires = $this->dateFrom($item, ['Expires_At', 'Expired_Date', 'End_At', 'End_Date']);
-                // Expiry is required by H8.54. Legacy rows without one stay in
-                // master history but are fail-closed on student reads.
-                if (! $expires || ($start && $instant->lt($start)) || $instant->gte($expires)) {
+                // New announcements require an expiry. Pre-V2 rows used the
+                // historical optional Expired_Date contract and remain valid
+                // indefinitely when that field was left empty.
+                if ((! $expires && ! $this->isIndefiniteLegacy($item))
+                    || ($start && $instant->lt($start))
+                    || ($expires && $instant->gte($expires))) {
                     return false;
                 }
 
@@ -524,7 +527,16 @@ class AnnouncementService
         $start = $this->dateFrom($item, ['Start_At', 'Publish_Date', 'Start_Date']);
         $expires = $this->dateFrom($item, ['Expires_At', 'Expired_Date', 'End_At', 'End_Date']);
 
-        return $expires && (! $start || ! $instant->lt($start)) && $instant->lt($expires);
+        if (! $expires && ! $this->isIndefiniteLegacy($item)) {
+            return false;
+        }
+
+        return (! $start || ! $instant->lt($start)) && (! $expires || $instant->lt($expires));
+    }
+
+    protected function isIndefiniteLegacy(array $item): bool
+    {
+        return $this->visibilityService()?->isPreV2Legacy($item) === true;
     }
 
     protected function visibilityService(): ?AnnouncementVisibilityService

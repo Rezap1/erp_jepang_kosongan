@@ -50,7 +50,7 @@ class AnnouncementController extends Controller
 
     protected $roleService;
 
-    public function __construct(AnnouncementService $announcementService, RoleService $roleService, ?ClassService $classService = null)
+    public function __construct(AnnouncementService $announcementService, RoleService $roleService, ClassService $classService)
     {
         $this->announcementService = $announcementService;
         $this->roleService = $roleService;
@@ -167,31 +167,19 @@ class AnnouncementController extends Controller
 
     protected function classes()
     {
-        try {
-            if ($this->classService) {
-                return collect($this->classService->getAllClasses())->filter(fn ($class) => strtoupper((string) ($class['Is_Active'] ?? 'TRUE')) !== 'FALSE')->values();
-            }
-        } catch (\Throwable) {
-        }
-
-        return collect();
+        return collect($this->classService->getAllClasses())
+            ->filter(fn ($class): bool => $this->isActiveMasterRow($class['Is_Active'] ?? true))
+            ->values();
     }
 
     protected function formOptions(): array
     {
         $classes = $this->classes();
-        try {
-            $visibility = app(AnnouncementVisibilityService::class);
-            $roles = $visibility->availableRoles();
-        } catch (\Throwable) {
-            $roles = [];
-        }
-        try {
-            $batches = collect(app(BatchRepositoryInterface::class)->fetchAll())
-                ->filter(fn ($batch) => strtoupper((string) ($batch['Is_Active'] ?? 'TRUE')) !== 'FALSE')->values();
-        } catch (\Throwable) {
-            $batches = collect();
-        }
+        $visibility = app(AnnouncementVisibilityService::class);
+        $roles = $visibility->availableRoles();
+        $batches = collect(app(BatchRepositoryInterface::class)->fetchAll())
+            ->filter(fn ($batch): bool => $this->isActiveMasterRow($batch['Is_Active'] ?? true))
+            ->values();
         $studentRoleId = collect($roles)->firstWhere('name', 'STUDENT')['id'] ?? '';
         $classesByBatch = $classes
             ->map(fn ($class): array => (array) $class)
@@ -217,6 +205,12 @@ class AnnouncementController extends Controller
         ];
 
         return compact('classes', 'roles', 'batches', 'classesByBatch', 'studentRoleId', 'audienceState');
+    }
+
+    protected function isActiveMasterRow(mixed $value): bool
+    {
+        return $value === true
+            || in_array(strtoupper(trim((string) $value)), ['TRUE', '1', 'YES', 'ACTIVE', 'ON'], true);
     }
 
     protected function formatDate($date): string
