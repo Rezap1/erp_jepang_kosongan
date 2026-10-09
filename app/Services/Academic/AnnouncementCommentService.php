@@ -5,6 +5,7 @@ namespace App\Services\Academic;
 use App\Services\Core\AvatarResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -127,6 +128,101 @@ final class AnnouncementCommentService
             ->whereIn('Announcement_ID', $ids)->whereNull('Deleted_At')
             ->groupBy('Announcement_ID')->select('Announcement_ID', DB::raw('COUNT(*) as aggregate'))
             ->pluck('aggregate', 'Announcement_ID')->map(fn ($count): int => (int) $count)->all();
+    }
+
+    /**
+     * Load a bounded preview for several already-authorized announcements.
+     *
+     * One windowed query obtains at most $limit rows per announcement, then
+     * AvatarResolver resolves every commenter as a single batch. Callers must
+     * only pass IDs obtained from AnnouncementService::getActiveForUser().
+     *
+     * @return array<string, Collection<int, object>>
+     */
+    public function latestForAnnouncements(iterable $announcementIds, mixed $user, int $limit = 3): array
+    {
+        $ids = collect($announcementIds)
+            ->map(fn ($id): string => trim((string) $id))
+            ->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $limit = max(1, min($limit, 10));
+        $ranked = $this->connection()->table('ANNOUNCEMENT_COMMENT as source_comments')
+            ->whereIn('source_comments.Announcement_ID', $ids)
+            ->whereNull('source_comments.Deleted_At')
+            ->select('source_comments.*')
+            ->selectRaw('ROW_NUMBER() OVER (PARTITION BY source_comments.Announcement_ID ORDER BY source_comments.Created_At DESC, source_comments.Comment_ID DESC) as Thread_Row');
+
+        $rows = $this->connection()->query()
+            ->fromSub($ranked, 'comments')
+            ->leftJoin('MASTER_USER as users', 'users.User_ID', '=', 'comments.User_ID')
+            ->leftJoin('MASTER_ROLE as roles', 'roles.Role_ID', '=', 'users.Role_ID')
+            ->leftJoin('MASTER_STICKER as stickers', 'stickers.Sticker_ID', '=', 'comments.Sticker_ID')
+            ->where('comments.Thread_Row', '<=', $limit)
+            ->orderBy('comments.Announcement_ID')
+            ->orderBy('comments.Created_At')
+            ->orderBy('comments.Comment_ID')
+            ->select([
+                'comments.*', 'users.Full_Name as User_Name', 'users.Username', 'users.Role_ID',
+                'roles.Role_Name', 'stickers.Name as Sticker_Name', 'stickers.File_Path as Sticker_Path',
+            ])->get();
+
+        $isAdmin = $this->visibility->roleName($user) === 'ADMINISTRATOR';
+        $userId = $this->userId($user);
+        $rows->each(function ($row) use ($isAdmin, $userId): void {
+            if ($row->Sticker_Path) {
+                $row->Sticker_URL = Storage::disk('public')->url($row->Sticker_Path);
+            }
+            $row->Can_Delete = $isAdmin || hash_equals((string) $row->User_ID, $userId);
+        });
+
+        if ($this->avatars && $rows->isNotEmpty()) {
+            $avatarMap = $this->avatars->resolveMany($rows->map(fn ($row): array => [
+                'User_ID' => $row->User_ID,
+                'Full_Name' => $row->User_Name,
+                'Role_ID' => $row->Role_ID,
+            ]));
+            $rows->each(function ($row) use ($avatarMap): void {
+                $row->Avatar_URL = $avatarMap[$row->User_ID] ?? null;
+            });
+        }
+
+        return $rows->groupBy('Announcement_ID')->all();
+    }
+
+    /**
+     * Resolve announcement authors without per-card user or avatar queries.
+     *
+     * @return array<string, object>
+     */
+    public function userProfiles(iterable $userIds): array
+    {
+        $ids = collect($userIds)
+            ->map(fn ($id): string => trim((string) $id))
+            ->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $users = $this->connection()->table('MASTER_USER as users')
+            ->leftJoin('MASTER_ROLE as roles', 'roles.Role_ID', '=', 'users.Role_ID')
+            ->whereIn('users.User_ID', $ids)
+            ->select('users.User_ID', 'users.Full_Name as User_Name', 'users.Username', 'users.Role_ID', 'roles.Role_Name')
+            ->get();
+        $avatarMap = $this->avatars
+            ? $this->avatars->resolveMany($users->map(fn ($row): array => [
+                'User_ID' => $row->User_ID,
+                'Full_Name' => $row->User_Name,
+                'Role_ID' => $row->Role_ID,
+            ]))
+            : [];
+        $users->each(function ($row) use ($avatarMap): void {
+            $row->Avatar_URL = $avatarMap[$row->User_ID] ?? null;
+        });
+
+        return $users->keyBy('User_ID')->all();
     }
 
     private function authorizedAnnouncement(string $id, mixed $user): array

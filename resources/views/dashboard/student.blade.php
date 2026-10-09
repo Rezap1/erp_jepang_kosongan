@@ -173,7 +173,7 @@
 </section>
 
 <!-- Pengumuman aktif: sumber data yang sama untuk desktop dan mobile -->
-<section aria-labelledby="student-announcements-heading" class="mb-6 rounded-2xl border border-amber-200 bg-white p-4 shadow-sm sm:p-6">
+<section aria-labelledby="student-announcements-heading" class="mb-6 min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <p class="text-xs font-bold uppercase tracking-widest text-amber-700">Informasi terbaru</p>
@@ -184,26 +184,46 @@
         @endif
     </div>
     @if(($announcements ?? collect())->isEmpty())
-        <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Belum ada pengumuman aktif untuk Anda.</p>
+        <p class="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-5 text-sm text-slate-500 shadow-sm">Belum ada pengumuman aktif untuk Anda.</p>
     @else
-        <div class="mt-4 grid gap-3 lg:grid-cols-3">
+        <div class="mx-auto mt-4 max-w-3xl space-y-5">
             @foreach($announcements as $announcement)
                 @php
                     $priority = $announcement['Priority_Label'] ?? 'Informasi';
-                    $tone = $priority === 'Mendesak' ? 'border-rose-300 bg-rose-50' : ($priority === 'Penting' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50');
                     $badge = $priority === 'Mendesak' ? 'bg-rose-600 text-white' : ($priority === 'Penting' ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700');
+                    $creatorName = $announcement['Creator_Name'] ?? 'WMS';
+                    $creatorInitials = collect(preg_split('/\s+/', trim($creatorName)))->filter()->take(2)->map(fn($word) => mb_strtoupper(mb_substr($word, 0, 1)))->implode('');
+                    $detailUrl = route('student.portal.announcements.show', $announcement['Announcement_ID']);
                 @endphp
-                <article class="min-w-0 rounded-xl border p-4 {{ $tone }}">
-                    <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-extrabold {{ $badge }}">{{ $priority }}</span>
-                    <h3 class="mt-3 break-words text-base font-black leading-snug text-slate-900">{{ $announcement['Title'] ?? 'Pengumuman' }}</h3>
-                    <p class="mt-2 max-h-20 overflow-hidden whitespace-pre-line break-words text-sm leading-6 text-slate-700">{{ $announcement['Message'] ?? $announcement['Content'] ?? '' }}</p>
-                    <p class="mt-3 text-xs font-semibold text-slate-600">Berakhir: {{ $announcement['Expires_At_Label'] ?? '-' }}</p>
-                    @if(Route::has('student.portal.announcements.show'))
-                        <a href="{{ route('student.portal.announcements.show', $announcement['Announcement_ID']) }}" class="mt-3 inline-flex text-xs font-bold text-emerald-700 hover:underline">Lihat Detail</a>
-                    @endif
+                <article class="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    <div class="p-4 sm:p-5">
+                        <header class="flex min-w-0 items-start gap-3">
+                            @if($announcement['Creator_Avatar_URL'] ?? null)
+                                <img src="{{ $announcement['Creator_Avatar_URL'] }}" alt="Foto profil {{ $creatorName }}" class="h-11 w-11 shrink-0 rounded-full border-2 border-emerald-200 object-cover">
+                            @else
+                                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-900 to-emerald-600 text-xs font-black text-white" aria-hidden="true">{{ $creatorInitials ?: 'WM' }}</div>
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><h3 class="break-words text-sm font-black text-slate-900">{{ $creatorName }}</h3><span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-extrabold {{ $badge }}">{{ $priority }}</span></div>
+                                <p class="mt-0.5 break-words text-xs text-slate-500">{{ ucwords(strtolower($announcement['Creator_Role'] ?? 'WMS')) }} · {{ $announcement['Start_At_Label'] ?? '-' }}</p>
+                            </div>
+                        </header>
+                        <h4 class="mt-4 break-words text-lg font-black leading-snug text-slate-900">{{ $announcement['Title'] ?? 'Pengumuman' }}</h4>
+                        <p class="mt-2 whitespace-pre-line break-words text-sm leading-6 text-slate-700 [overflow-wrap:anywhere]">{{ $announcement['Message'] ?? $announcement['Content'] ?? '' }}</p>
+                        <p class="mt-4 text-xs font-semibold text-slate-500">Berakhir: {{ $announcement['Expires_At_Label'] ?? '-' }}</p>
+                    </div>
+                    @include('announcements.comments.thread', [
+                        'mode' => 'compact',
+                        'announcement' => $announcement,
+                        'comments' => $announcement['Latest_Comments'] ?? collect(),
+                        'commentCount' => $announcement['Comment_Count'] ?? 0,
+                        'detailUrl' => $detailUrl,
+                        'currentUserAvatar' => $announcementCommenterAvatar ?? null,
+                    ])
                 </article>
             @endforeach
         </div>
+        @include('announcements.comments.sticker-picker', ['library' => $announcementStickerLibrary])
     @endif
 </section>
 

@@ -13,6 +13,7 @@ use App\Services\Academic\AnnouncementVisibilityService;
 use App\Services\Academic\StickerLibraryService;
 use App\Services\Core\GlobalSearchService;
 use App\Services\Core\RoleService;
+use App\Services\Dashboard\StudentDashboardService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Schema\Blueprint;
@@ -99,7 +100,10 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         $batches->shouldReceive('findById')->andReturnNull();
         $classes = Mockery::mock(ClassRepositoryInterface::class);
         $classes->shouldReceive('findById')->andReturnNull();
-        $visibility = new AnnouncementVisibilityService(new RoleService($roles), $students, $batches, $classes);
+        $roleService = new RoleService($roles);
+        $this->app->instance(RoleService::class, $roleService);
+        $visibility = new AnnouncementVisibilityService($roleService, $students, $batches, $classes);
+        $this->app->instance(AnnouncementVisibilityService::class, $visibility);
         $repo = new class implements AnnouncementRepositoryInterface
         {
             public function fetchAll()
@@ -348,5 +352,129 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         $composer = file_get_contents(resource_path('views/announcements/feed/show.blade.php'));
         $this->assertStringNotContainsString('type="file"', $composer);
         $this->assertStringNotContainsString('external_url', $composer);
+    }
+
+    public function test_student_detail_renders_shared_comment_ui_with_empty_sticker_library(): void
+    {
+        DB::table('MASTER_STICKER')->delete();
+        DB::table('MASTER_STICKER_PACK')->delete();
+
+        $this->actingAs($this->student)
+            ->get(route('student.portal.announcements.show', 'ANC-1'))
+            ->assertOk()
+            ->assertSee('0 Komentar')
+            ->assertSee('Belum ada komentar.')
+            ->assertSee('Jadilah yang pertama berkomentar.')
+            ->assertSee('Tulis komentar...')
+            ->assertSee('Stiker')
+            ->assertSee('Kirim')
+            ->assertSee('Belum ada stiker tersedia.');
+    }
+
+    public function test_compact_thread_loads_only_three_latest_and_uses_full_thread_count(): void
+    {
+        $ids = [];
+        for ($index = 1; $index <= 5; $index++) {
+            $ids[] = $this->comments->createText('ANC-1', $this->student, 'Komentar dashboard '.$index);
+        }
+        $this->comments->delete('ANC-1', $ids[0], $this->student);
+
+        $latest = $this->comments->latestForAnnouncements(['ANC-1'], $this->student);
+        $this->assertCount(3, $latest['ANC-1']);
+        $this->assertSame(
+            ['Komentar dashboard 3', 'Komentar dashboard 4', 'Komentar dashboard 5'],
+            $latest['ANC-1']->pluck('Comment_Text')->all(),
+        );
+        $this->assertSame(4, $this->comments->counts(['ANC-1'])['ANC-1']);
+        $this->assertSame(4, $this->comments->paginate('ANC-1', $this->student)->total());
+
+        view()->share('errors', new ViewErrorBag);
+        $html = view('announcements.comments.thread', [
+            'mode' => 'compact',
+            'announcement' => ['Announcement_ID' => 'ANC-1'],
+            'comments' => $latest['ANC-1'],
+            'commentCount' => 4,
+            'detailUrl' => route('student.portal.announcements.show', 'ANC-1'),
+            'currentUserAvatar' => null,
+        ])->render();
+        $this->assertStringContainsString('4 Komentar', $html);
+        $this->assertStringContainsString('Lihat 1 komentar lainnya', $html);
+        $this->assertStringNotContainsString('Komentar dashboard 2', $html);
+    }
+
+    public function test_dashboard_and_student_detail_share_the_same_comment_thread(): void
+    {
+        $this->actingAs($this->student)
+            ->from(route('dashboard.student'))
+            ->post(route('announcement-comments.store', 'ANC-1'), [
+                'Comment_Type' => 'TEXT', 'Comment_Text' => 'Dikirim dari dashboard.',
+            ])->assertRedirect(route('dashboard.student'));
+
+        $this->get(route('student.portal.announcements.show', 'ANC-1'))
+            ->assertOk()
+            ->assertSee('Dikirim dari dashboard.');
+
+        $this->from(route('student.portal.announcements.show', 'ANC-1'))
+            ->post(route('announcement-comments.store', 'ANC-1'), [
+                'Comment_Type' => 'TEXT', 'Comment_Text' => 'Dikirim dari detail.',
+            ])->assertRedirect(route('student.portal.announcements.show', 'ANC-1'));
+
+        $latest = $this->comments->latestForAnnouncements(['ANC-1'], $this->student)['ANC-1'];
+        $this->assertTrue($latest->contains('Comment_Text', 'Dikirim dari dashboard.'));
+        $this->assertTrue($latest->contains('Comment_Text', 'Dikirim dari detail.'));
+        $this->assertSame($this->comments->paginate('ANC-1', $this->student)->total(), $this->comments->counts(['ANC-1'])['ANC-1']);
+    }
+
+    public function test_unmapped_student_identity_fails_closed_for_detail_and_forged_comment(): void
+    {
+        DB::table('MASTER_USER')->insert([
+            'User_ID' => 'USR-UNMAPPED', 'Role_ID' => 'ROLE-STUDENT', 'Full_Name' => 'Tanpa Profil', 'Username' => 'unmapped',
+        ]);
+        $unmapped = new GenericUser(['id' => 'USR-UNMAPPED', 'User_ID' => 'USR-UNMAPPED', 'Role_ID' => 'ROLE-STUDENT']);
+
+        $allRoles = $this->announcements->getById('ANC-1');
+        $allRoles['Audience_Type'] = AnnouncementVisibilityService::ALL_ROLES;
+        $this->assertFalse($this->app->make(AnnouncementVisibilityService::class)->canView($unmapped, $allRoles));
+        $this->actingAs($unmapped)
+            ->get(route('student.portal.announcements.show', 'ANC-1'))
+            ->assertForbidden();
+        $this->post(route('announcement-comments.store', 'ANC-1'), [
+            'Comment_Type' => 'TEXT', 'Comment_Text' => 'Tidak boleh tersimpan.',
+        ])->assertForbidden();
+        $this->assertDatabaseMissing('ANNOUNCEMENT_COMMENT', ['Comment_Text' => 'Tidak boleh tersimpan.']);
+    }
+
+    public function test_student_dashboard_renders_social_comment_card_from_batched_thread_data(): void
+    {
+        for ($index = 1; $index <= 4; $index++) {
+            $this->comments->createText('ANC-1', $this->student, 'Komentar sosial '.$index);
+        }
+        $dashboard = Mockery::mock(StudentDashboardService::class);
+        $dashboard->shouldReceive('getDashboardData')->once()->andReturn([
+            'announcements' => collect([array_merge($this->announcements->getById('ANC-1'), [
+                'Priority_Label' => 'Informasi',
+                'Start_At_Label' => '1 Oktober 2026, 08.00 WIB',
+                'Expires_At_Label' => '31 Oktober 2026, 08.00 WIB',
+                'Created_By' => 'USR-ADMIN',
+            ])]),
+            'kpi' => [],
+            'langProgress' => 0,
+            'reminders' => [],
+            'recentActivities' => [],
+        ]);
+        $this->app->instance(StudentDashboardService::class, $dashboard);
+
+        $this->actingAs($this->student)
+            ->get(route('dashboard.student'))
+            ->assertOk()
+            ->assertSee('4 Komentar')
+            ->assertSee('Komentar sosial 2')
+            ->assertSee('Komentar sosial 3')
+            ->assertSee('Komentar sosial 4')
+            ->assertDontSee('Komentar sosial 1')
+            ->assertSee('Lihat 1 komentar lainnya')
+            ->assertSee('Tulis komentar...')
+            ->assertSee('Lihat Semua Pengumuman')
+            ->assertSee('Lihat Detail');
     }
 }

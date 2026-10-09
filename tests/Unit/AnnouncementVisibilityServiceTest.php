@@ -45,7 +45,8 @@ class AnnouncementVisibilityServiceTest extends TestCase
     #[DataProvider('roles')]
     public function test_all_roles_is_visible_to_every_canonical_role(string $role): void
     {
-        $this->assertTrue($this->service->canView($this->user($role), ['Audience_Type' => 'ALL_ROLES']));
+        $userId = $role === 'STUDENT' ? 'USR-STUDENT-A' : null;
+        $this->assertTrue($this->service->canView($this->user($role, $userId), ['Audience_Type' => 'ALL_ROLES']));
     }
 
     public static function roles(): array

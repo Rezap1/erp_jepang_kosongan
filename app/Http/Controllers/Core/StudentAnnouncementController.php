@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Core;
 
 use App\Http\Controllers\Controller;
+use App\Services\Academic\AnnouncementCommentService;
 use App\Services\Academic\AnnouncementService;
+use App\Services\Academic\StickerLibraryService;
+use App\Services\Core\AvatarResolver;
 use App\Services\Core\StudentService;
+use App\Support\ActorIdentity;
 use Illuminate\Support\Facades\Auth;
 
 class StudentAnnouncementController extends Controller
@@ -12,6 +16,9 @@ class StudentAnnouncementController extends Controller
     public function __construct(
         protected AnnouncementService $announcementService,
         protected StudentService $studentService,
+        protected AnnouncementCommentService $commentService,
+        protected StickerLibraryService $stickerLibrary,
+        protected AvatarResolver $avatarResolver,
     ) {}
 
     public function index()
@@ -35,10 +42,14 @@ class StudentAnnouncementController extends Controller
         $announcement = $this->announcementService->getVisibleForUser($id, Auth::user());
         abort_if(! $announcement, 403, 'Anda tidak memiliki akses ke pengumuman ini.');
         $announcement['Priority_Label'] = $this->announcementService->priorityLabel($announcement['Priority'] ?? 'NORMAL');
+        $announcement['Audience_Label'] = $this->announcementService->audienceLabel($announcement);
         $announcement['Start_At_Label'] = $this->formatDate($this->announcementService->startAt($announcement));
         $announcement['Expires_At_Label'] = $this->formatDate($this->announcementService->expiresAt($announcement));
+        $comments = $this->commentService->paginate($id, Auth::user());
+        $library = $this->stickerLibrary->picker(ActorIdentity::required());
+        $currentUserAvatar = $this->avatarResolver->resolve(Auth::user());
 
-        return view('student.portal.announcements.show', compact('announcement'));
+        return view('student.portal.announcements.show', compact('announcement', 'comments', 'library', 'currentUserAvatar'));
     }
 
     protected function currentStudent(): array

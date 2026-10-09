@@ -12,5 +12,12 @@
         <div class="mt-5 whitespace-pre-line break-words text-base leading-7 text-slate-700">{{ $announcement['Message'] ?? $announcement['Content'] ?? '' }}</div>
         <p class="mt-8 border-t border-slate-100 pt-4 text-sm font-semibold text-slate-600">Berakhir: {{ $announcement['Expires_At_Label'] ?? '-' }}</p>
     </article>
+    @include('announcements.comments.thread', [
+        'mode' => 'full',
+        'announcement' => $announcement,
+        'comments' => $comments,
+        'currentUserAvatar' => $currentUserAvatar,
+    ])
 </div>
+@include('announcements.comments.sticker-picker', ['library' => $library])
 @endsection

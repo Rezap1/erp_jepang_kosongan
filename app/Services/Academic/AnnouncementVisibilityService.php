@@ -47,6 +47,16 @@ final class AnnouncementVisibilityService
             return false;
         }
 
+        // Every Student decision requires a canonical student profile first,
+        // including broad ALL_ROLES and ALL_STUDENTS announcements.
+        $student = null;
+        if ($roleName === 'STUDENT') {
+            $student = $this->studentFor($user);
+            if (! $student) {
+                return false;
+            }
+        }
+
         $target = $this->target($announcement);
         if ($target['audience_type'] === self::ALL_ROLES) {
             return true;
@@ -63,11 +73,6 @@ final class AnnouncementVisibilityService
         }
         if ($target['student_scope'] === self::ALL_STUDENTS) {
             return true;
-        }
-
-        $student = $this->studentFor($user);
-        if (! $student) {
-            return false;
         }
         $studentBatch = trim((string) ($student['Batch_ID'] ?? ''));
         if ($target['batch_id'] === '' || ! hash_equals($target['batch_id'], $studentBatch)) {
