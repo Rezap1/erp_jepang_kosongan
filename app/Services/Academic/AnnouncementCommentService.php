@@ -19,18 +19,47 @@ final class AnnouncementCommentService
     public function __construct(
         private AnnouncementService $announcements,
         private AnnouncementVisibilityService $visibility,
-        private ?AvatarResolver $avatars = null,
+        private AvatarResolver $avatars,
     ) {}
 
     public function paginate(string $announcementId, mixed $user): LengthAwarePaginator
     {
         $announcement = $this->authorizedAnnouncement($announcementId, $user);
 
+        return $this->paginateRows((string) $announcement['Announcement_ID'], $user);
+    }
+
+    /**
+     * Show the complete thread to an announcement manager without widening
+     * the audience rules used by student-facing routes.
+     */
+    public function paginateForManager(string $announcementId, mixed $user): LengthAwarePaginator
+    {
+        $announcement = $this->announcements->getById($announcementId);
+        if (! $announcement) {
+            throw new \InvalidArgumentException('Pengumuman tidak ditemukan.');
+        }
+
+        $role = $this->visibility->roleName($user);
+        $isGlobalManager = in_array($role, ['ADMINISTRATOR', 'ACADEMIC', 'MASTER'], true);
+        $creatorId = trim((string) ($announcement['Created_By'] ?? ''));
+        $isTeacherOwner = $role === 'TEACHER'
+            && $creatorId !== ''
+            && hash_equals($creatorId, $this->userId($user));
+        if (! $isGlobalManager && ! $isTeacherOwner) {
+            throw new AuthorizationException('Anda tidak memiliki akses untuk mengelola pengumuman ini.');
+        }
+
+        return $this->paginateRows((string) $announcement['Announcement_ID'], $user);
+    }
+
+    private function paginateRows(string $announcementId, mixed $user): LengthAwarePaginator
+    {
         $paginator = $this->connection()->table('ANNOUNCEMENT_COMMENT as comments')
             ->leftJoin('MASTER_USER as users', 'users.User_ID', '=', 'comments.User_ID')
             ->leftJoin('MASTER_ROLE as roles', 'roles.Role_ID', '=', 'users.Role_ID')
             ->leftJoin('MASTER_STICKER as stickers', 'stickers.Sticker_ID', '=', 'comments.Sticker_ID')
-            ->where('comments.Announcement_ID', $announcement['Announcement_ID'])
+            ->where('comments.Announcement_ID', $announcementId)
             ->whereNull('comments.Deleted_At')
             ->orderBy('comments.Created_At')->orderBy('comments.Comment_ID')
             ->select([
@@ -48,16 +77,14 @@ final class AnnouncementCommentService
                 return $row;
             });
 
-        if ($this->avatars) {
-            $avatarMap = $this->avatars->resolveMany($paginator->getCollection()->map(fn ($row): array => [
-                'User_ID' => $row->User_ID, 'Full_Name' => $row->User_Name, 'Role_ID' => $row->Role_ID,
-            ]));
-            $paginator->through(function ($row) use ($avatarMap): object {
-                $row->Avatar_URL = $avatarMap[$row->User_ID] ?? null;
+        $avatarMap = $this->avatars->resolveMany($paginator->getCollection()->map(fn ($row): array => [
+            'User_ID' => $row->User_ID, 'Full_Name' => $row->User_Name, 'Role_ID' => $row->Role_ID,
+        ]));
+        $paginator->through(function ($row) use ($avatarMap): object {
+            $row->Avatar_URL = $avatarMap[$row->User_ID] ?? null;
 
-                return $row;
-            });
-        }
+            return $row;
+        });
 
         return $paginator;
     }
@@ -178,7 +205,7 @@ final class AnnouncementCommentService
             $row->Can_Delete = $isAdmin || hash_equals((string) $row->User_ID, $userId);
         });
 
-        if ($this->avatars && $rows->isNotEmpty()) {
+        if ($rows->isNotEmpty()) {
             $avatarMap = $this->avatars->resolveMany($rows->map(fn ($row): array => [
                 'User_ID' => $row->User_ID,
                 'Full_Name' => $row->User_Name,
@@ -211,13 +238,11 @@ final class AnnouncementCommentService
             ->whereIn('users.User_ID', $ids)
             ->select('users.User_ID', 'users.Full_Name as User_Name', 'users.Username', 'users.Role_ID', 'roles.Role_Name')
             ->get();
-        $avatarMap = $this->avatars
-            ? $this->avatars->resolveMany($users->map(fn ($row): array => [
-                'User_ID' => $row->User_ID,
-                'Full_Name' => $row->User_Name,
-                'Role_ID' => $row->Role_ID,
-            ]))
-            : [];
+        $avatarMap = $this->avatars->resolveMany($users->map(fn ($row): array => [
+            'User_ID' => $row->User_ID,
+            'Full_Name' => $row->User_Name,
+            'Role_ID' => $row->Role_ID,
+        ]));
         $users->each(function ($row) use ($avatarMap): void {
             $row->Avatar_URL = $avatarMap[$row->User_ID] ?? null;
         });

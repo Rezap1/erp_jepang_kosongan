@@ -29,7 +29,7 @@ class AvatarResolverTest extends TestCase
         $this->assertStringContainsString('/storage/profiles/student_STD-A.jpg', $url);
         $this->app->instance(AvatarResolver::class, $resolver);
         $html = view('components.user-avatar', ['user' => $user])->render();
-        $this->assertStringContainsString('src="' . e($url) . '"', $html);
+        $this->assertStringContainsString('src="'.e($url).'"', $html);
     }
 
     public function test_missing_or_malformed_photo_safely_falls_back_without_external_url(): void
@@ -65,7 +65,7 @@ class AvatarResolverTest extends TestCase
         ]);
         $employeeService = Mockery::mock(EmployeeService::class);
         $employeeService->shouldReceive('getProfilePhotoPath')->andReturnUsing(
-            fn (string $id) => 'storage/profiles/employee_' . $id . '.jpg'
+            fn (string $id) => 'storage/profiles/employee_'.$id.'.jpg'
         );
         $resolver = new AvatarResolver(
             $employeeRepo,

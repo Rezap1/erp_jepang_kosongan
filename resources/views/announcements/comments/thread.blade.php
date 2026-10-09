@@ -7,6 +7,8 @@
     $threadCount = (int) ($commentCount ?? ($comments instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator ? $comments->total() : $threadComments->count()));
     $threadId = 'announcement-comments-'.md5((string) $announcement['Announcement_ID']);
     $otherCount = max(0, $threadCount - $threadComments->count());
+    $detailUrl = $detailUrl ?? null;
+    $showComposer = $showComposer ?? true;
 @endphp
 
 <section id="{{ $threadId }}" class="{{ $isCompact ? 'border-t border-slate-100' : 'rounded-3xl border border-slate-200 bg-white shadow-sm' }}" aria-labelledby="{{ $threadId }}-heading">
@@ -24,16 +26,9 @@
 
     <div class="{{ $isCompact ? 'px-4 sm:px-5' : 'divide-y divide-slate-100 px-5 sm:px-7' }}">
         @forelse($threadComments as $comment)
-            @php
-                $displayName = $comment->User_Name ?: $comment->Username ?: 'Pengguna';
-                $initials = collect(preg_split('/\s+/', trim($displayName)))->filter()->take(2)->map(fn($word) => mb_strtoupper(mb_substr($word, 0, 1)))->implode('');
-            @endphp
+            @php $displayName = $comment->User_Name ?: $comment->Username ?: 'Pengguna'; @endphp
             <article class="flex min-w-0 gap-3 {{ $isCompact ? 'border-t border-slate-100 py-3 first:border-t-0' : 'py-5' }}">
-                @if($comment->Avatar_URL ?? null)
-                    <img src="{{ $comment->Avatar_URL }}" alt="Foto profil {{ $displayName }}" class="h-9 w-9 shrink-0 rounded-full border-2 border-emerald-200 object-cover sm:h-10 sm:w-10">
-                @else
-                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-800 to-emerald-600 text-[10px] font-black text-white sm:h-10 sm:w-10 sm:text-xs" aria-hidden="true">{{ $initials ?: 'US' }}</div>
-                @endif
+                <x-resolved-avatar :name="$displayName" :url="$comment->Avatar_URL ?? null" class="h-9 w-9 sm:h-10 sm:w-10" text-size="text-[10px] sm:text-xs" />
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div class="min-w-0">
@@ -61,7 +56,7 @@
         @empty
             <div class="{{ $isCompact ? 'border-t border-slate-100 py-5' : 'py-12' }} text-center">
                 <p class="font-bold text-slate-700">Belum ada komentar.</p>
-                <p class="mt-1 text-sm text-slate-500">Jadilah yang pertama berkomentar.</p>
+                <p class="mt-1 text-sm text-slate-500">{{ $showComposer ? 'Jadilah yang pertama berkomentar.' : 'Komentar penerima akan muncul di sini.' }}</p>
             </div>
         @endforelse
     </div>
@@ -74,9 +69,11 @@
         <div class="border-t border-slate-100 px-5 py-4 sm:px-7">{{ $comments->onEachSide(1)->links() }}</div>
     @endif
 
-    @include('announcements.comments.composer', [
-        'announcement' => $announcement,
-        'compact' => $isCompact,
-        'currentUserAvatar' => $currentUserAvatar ?? null,
-    ])
+    @if($showComposer)
+        @include('announcements.comments.composer', [
+            'announcement' => $announcement,
+            'compact' => $isCompact,
+            'currentUserAvatar' => $currentUserAvatar ?? null,
+        ])
+    @endif
 </section>

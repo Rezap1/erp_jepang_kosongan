@@ -13,6 +13,7 @@ use App\Services\Core\ClassService;
 use App\Services\Core\RoleService;
 use App\Support\ActorIdentity;
 use App\Traits\Exportable;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class AnnouncementController extends Controller
@@ -50,23 +51,32 @@ class AnnouncementController extends Controller
 
     protected $roleService;
 
-    public function __construct(AnnouncementService $announcementService, RoleService $roleService, ClassService $classService)
-    {
+    protected $commentService;
+
+    public function __construct(
+        AnnouncementService $announcementService,
+        RoleService $roleService,
+        ClassService $classService,
+        AnnouncementCommentService $commentService,
+    ) {
         $this->announcementService = $announcementService;
         $this->roleService = $roleService;
         $this->classService = $classService;
+        $this->commentService = $commentService;
     }
 
     public function index(Request $request)
     {
         $announcements = $this->managedAnnouncements();
         try {
-            $commentCounts = app(AnnouncementCommentService::class)
-                ->counts($announcements->pluck('Announcement_ID'));
+            $commentCounts = $this->commentService->counts($announcements->pluck('Announcement_ID'));
+            $creatorProfiles = $this->commentService->userProfiles($announcements->pluck('Created_By'));
         } catch (\Throwable) {
             $commentCounts = [];
+            $creatorProfiles = [];
         }
-        $announcements = $announcements->map(function ($announcement) use ($commentCounts) {
+        $announcements = $announcements->map(function ($announcement) use ($commentCounts, $creatorProfiles) {
+            $creator = $creatorProfiles[$announcement['Created_By'] ?? ''] ?? null;
             $announcement['Audience_Label'] = $this->announcementService->audienceLabel((array) $announcement);
             $announcement['Priority_Label'] = $this->announcementService->priorityLabel($announcement['Priority'] ?? 'NORMAL');
             $announcement['Status_Label'] = $this->announcementService->presentationStatus((array) $announcement);
@@ -74,6 +84,8 @@ class AnnouncementController extends Controller
             $announcement['Expiry_Label'] = $this->formatDate($this->announcementService->expiresAt((array) $announcement));
             $announcement['Can_Manage'] = $this->canManage((array) $announcement);
             $announcement['Comment_Count'] = $commentCounts[$announcement['Announcement_ID']] ?? 0;
+            $announcement['Creator_Name'] = $creator->User_Name ?? $creator->Username ?? $announcement['Created_By'] ?? 'WMS';
+            $announcement['Creator_Avatar_URL'] = $creator->Avatar_URL ?? null;
 
             return $announcement;
         });
@@ -105,14 +117,23 @@ class AnnouncementController extends Controller
             return redirect()->route('announcements.index')->withErrors(['error' => 'Pengumuman tidak ditemukan.']);
         }
         $this->authorizeTeacherOwnership((array) $announcement);
+        $comments = $this->commentService->paginateForManager((string) $id, auth()->user());
+        $creatorProfiles = $this->commentService->userProfiles([$announcement['Created_By'] ?? null]);
+        $creator = $creatorProfiles[$announcement['Created_By'] ?? ''] ?? null;
         $announcement['Audience_Label'] = $this->announcementService->audienceLabel((array) $announcement);
         $announcement['Priority_Label'] = $this->announcementService->priorityLabel($announcement['Priority'] ?? 'NORMAL');
         $announcement['Status_Label'] = $this->announcementService->presentationStatus((array) $announcement);
         $announcement['Start_Label'] = $this->formatDate($this->announcementService->startAt((array) $announcement));
         $announcement['Expiry_Label'] = $this->formatDate($this->announcementService->expiresAt((array) $announcement));
         $announcement['Can_Manage'] = $this->canManage((array) $announcement);
+        $announcement['Comment_Count'] = $comments->total();
+        $announcement['Creator_Name'] = $creator->User_Name ?? $creator->Username ?? $announcement['Created_By'] ?? 'WMS';
+        $announcement['Creator_Role'] = $creator->Role_Name ?? 'Pengguna';
+        $announcement['Creator_Avatar_URL'] = $creator->Avatar_URL ?? null;
+        $announcement['Created_Label'] = $this->formatStoredDate($announcement['Created_At'] ?? $announcement['Publish_Date'] ?? null);
+        $announcement['Category_Label'] = $announcement['Announcement_Type'] ?? $announcement['Category'] ?? 'Pengumuman';
 
-        return view('academic.announcements.show', compact('announcement'));
+        return view('academic.announcements.show', compact('announcement', 'comments'));
     }
 
     public function edit($id)
@@ -216,6 +237,20 @@ class AnnouncementController extends Controller
     protected function formatDate($date): string
     {
         return $date ? $date->locale('id')->translatedFormat('j F Y, H.i').' WIB' : '-';
+    }
+
+    protected function formatStoredDate(mixed $date): string
+    {
+        if (! $date) {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse((string) $date, AnnouncementService::TIMEZONE)
+                ->locale('id')->translatedFormat('j F Y, H.i').' WIB';
+        } catch (\Throwable) {
+            return '-';
+        }
     }
 
     protected function managedAnnouncements()

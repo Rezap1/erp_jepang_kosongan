@@ -104,11 +104,12 @@ final class AvatarResolver
         }
 
         try {
+            $normalizedIds = $ids->mapWithKeys(fn (string $id): array => [strtolower($id) => true]);
             $employees = collect($this->employeeRepository->fetchAll())
-                ->filter(fn ($row): bool => $ids->contains(trim((string) ($row['User_ID'] ?? ''))))
+                ->filter(fn ($row): bool => isset($normalizedIds[strtolower(trim((string) ($row['User_ID'] ?? '')))]))
                 ->keyBy(fn ($row): string => strtolower(trim((string) ($row['User_ID'] ?? ''))));
             $students = collect($this->studentRepository->fetchAll())
-                ->filter(fn ($row): bool => $ids->contains(trim((string) ($row['User_ID'] ?? ''))))
+                ->filter(fn ($row): bool => isset($normalizedIds[strtolower(trim((string) ($row['User_ID'] ?? '')))]))
                 ->keyBy(fn ($row): string => strtolower(trim((string) ($row['User_ID'] ?? ''))));
             $files = collect(Storage::disk('public')->files('profiles'));
 
@@ -127,7 +128,7 @@ final class AvatarResolver
                         ['user', $userId],
                     ], fn (array $identity): bool => $identity[1] !== '');
                     foreach ($identities as [$prefix, $id]) {
-                        $path = $files->first(fn (string $candidate): bool => (bool) preg_match('/^'.preg_quote($prefix.'_'.$id, '/').'\.[A-Za-z0-9]+$/', basename($candidate)));
+                        $path = $files->first(fn (string $candidate): bool => $this->matchesProfileFile($candidate, $prefix, $id));
                         if ($path) {
                             $photo = Storage::disk('public')->url($path);
                             break;
@@ -161,12 +162,21 @@ final class AvatarResolver
     private function findProfileFile(string $prefix, string $identifier): ?string
     {
         foreach (Storage::disk('public')->files('profiles') as $path) {
-            if (preg_match('/^'.preg_quote($prefix.'_'.$identifier, '/').'\\.[A-Za-z0-9]+$/', basename($path))) {
+            if ($this->matchesProfileFile($path, $prefix, $identifier)) {
                 return Storage::disk('public')->url($path);
             }
         }
 
         return null;
+    }
+
+    private function matchesProfileFile(string $path, string $prefix, string $identifier): bool
+    {
+        // Employee uploads may carry a collision-safe suffix. Keep the same
+        // convention for batched comment avatars and single-user headers.
+        $stem = preg_quote($prefix.'_'.trim($identifier), '/');
+
+        return (bool) preg_match('/^'.$stem.'(?:_[A-Za-z0-9-]+)?\.(?:jpe?g|png|webp)$/i', basename($path));
     }
 
     private function normalizePhoto(mixed $value): ?string

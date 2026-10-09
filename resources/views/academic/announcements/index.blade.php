@@ -93,7 +93,15 @@
                     <p class="text-sm text-slate-600 line-clamp-3 leading-relaxed">
                         {{ $ann['Message'] ?? $ann['Content'] ?? '' }}
                     </p>
-                    <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-bold text-slate-500"><span>Pembuat: {{ $ann['Created_By'] ?? 'WMS' }}</span><span>💬 {{ $ann['Comment_Count'] ?? 0 }} Komentar</span></div>
+                    <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                        <div class="flex min-w-0 items-center gap-2 text-xs font-bold text-slate-500">
+                            <x-resolved-avatar :name="$ann['Creator_Name']" :url="$ann['Creator_Avatar_URL']" class="h-8 w-8" text-size="text-[9px]" />
+                            <span class="break-words">{{ $ann['Creator_Name'] }}</span>
+                        </div>
+                        <a href="{{ route('announcements.show', $ann['Announcement_ID']) }}" class="inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-black text-emerald-700 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                            <span aria-hidden="true">💬</span>&nbsp;{{ $ann['Comment_Count'] ?? 0 }} Komentar · Lihat Detail
+                        </a>
+                    </div>
                 </div>
             @endforeach
         </div>

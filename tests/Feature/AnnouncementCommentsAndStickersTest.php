@@ -5,12 +5,16 @@ namespace Tests\Feature;
 use App\Interfaces\GoogleSheets\AnnouncementRepositoryInterface;
 use App\Interfaces\GoogleSheets\BatchRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
+use App\Interfaces\GoogleSheets\EmployeeRepositoryInterface;
 use App\Interfaces\GoogleSheets\RoleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Services\Academic\AnnouncementCommentService;
 use App\Services\Academic\AnnouncementService;
 use App\Services\Academic\AnnouncementVisibilityService;
 use App\Services\Academic\StickerLibraryService;
+use App\Services\Core\AvatarResolver;
+use App\Services\Core\ClassService;
+use App\Services\Core\EmployeeService;
 use App\Services\Core\GlobalSearchService;
 use App\Services\Core\RoleService;
 use App\Services\Dashboard\StudentDashboardService;
@@ -38,6 +42,12 @@ class AnnouncementCommentsAndStickersTest extends TestCase
     private GenericUser $outsider;
 
     private GenericUser $admin;
+
+    private GenericUser $secondStudent;
+
+    private GenericUser $teacher;
+
+    private GenericUser $otherTeacher;
 
     protected function setUp(): void
     {
@@ -71,17 +81,22 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         (require database_path('migrations/wms_mysql/2026_10_06_000001_add_announcement_v2.php'))->up();
         (require database_path('migrations/wms_mysql/2026_10_06_000002_add_announcement_multi_audience.php'))->up();
         DB::table('MASTER_ROLE')->insert([
-            ['Role_ID' => 'ROLE-STUDENT', 'Role_Name' => 'STUDENT'], ['Role_ID' => 'ROLE-HR', 'Role_Name' => 'HR'], ['Role_ID' => 'ROLE-ADMINISTRATOR', 'Role_Name' => 'ADMINISTRATOR'],
+            ['Role_ID' => 'ROLE-STUDENT', 'Role_Name' => 'STUDENT'], ['Role_ID' => 'ROLE-HR', 'Role_Name' => 'HR'], ['Role_ID' => 'ROLE-ADMINISTRATOR', 'Role_Name' => 'ADMINISTRATOR'], ['Role_ID' => 'ROLE-TEACHER', 'Role_Name' => 'TEACHER'],
         ]);
         DB::table('MASTER_USER')->insert([
             ['User_ID' => 'USR-STUDENT', 'Role_ID' => 'ROLE-STUDENT', 'Full_Name' => 'Siswa A', 'Username' => 'siswa'],
+            ['User_ID' => 'USR-STUDENT-2', 'Role_ID' => 'ROLE-STUDENT', 'Full_Name' => 'Siswa B', 'Username' => 'siswa-b'],
             ['User_ID' => 'USR-HR', 'Role_ID' => 'ROLE-HR', 'Full_Name' => 'HR A', 'Username' => 'hr'],
             ['User_ID' => 'USR-ADMIN', 'Role_ID' => 'ROLE-ADMINISTRATOR', 'Full_Name' => 'Admin', 'Username' => 'admin'],
+            ['User_ID' => 'USR-TEACHER', 'Role_ID' => 'ROLE-TEACHER', 'Full_Name' => 'Guru Pemilik', 'Username' => 'guru'],
+            ['User_ID' => 'USR-TEACHER-2', 'Role_ID' => 'ROLE-TEACHER', 'Full_Name' => 'Guru Lain', 'Username' => 'guru-lain'],
         ]);
         DB::table('MASTER_ANNOUNCEMENT')->insert([
             ['Announcement_ID' => 'ANC-1', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT'],
             ['Announcement_ID' => 'ANC-LEGACY', 'Audience_Type' => null, 'Target_Role' => 'STUDENT'],
             ['Announcement_ID' => 'ANC-INACTIVE', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT'],
+            ['Announcement_ID' => 'ANC-CREATOR', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT'],
+            ['Announcement_ID' => 'ANC-OTHER-CREATOR', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT'],
         ]);
         DB::table('MASTER_STICKER_PACK')->insert(['Sticker_Pack_ID' => 'PACK-1', 'Name' => 'Reaksi', 'Is_Active' => true, 'Sort_Order' => 0]);
         DB::table('MASTER_STICKER')->insert([
@@ -91,11 +106,14 @@ class AnnouncementCommentsAndStickersTest extends TestCase
 
         $roles = Mockery::mock(RoleRepositoryInterface::class);
         $roles->shouldReceive('fetchAll')->andReturn(collect([
-            ['Role_ID' => 'ROLE-STUDENT', 'Role_Name' => 'STUDENT', 'Is_Active' => 'TRUE'], ['Role_ID' => 'ROLE-HR', 'Role_Name' => 'HR', 'Is_Active' => 'TRUE'], ['Role_ID' => 'ROLE-ADMINISTRATOR', 'Role_Name' => 'ADMINISTRATOR', 'Is_Active' => 'TRUE'],
+            ['Role_ID' => 'ROLE-STUDENT', 'Role_Name' => 'STUDENT', 'Is_Active' => 'TRUE'], ['Role_ID' => 'ROLE-HR', 'Role_Name' => 'HR', 'Is_Active' => 'TRUE'], ['Role_ID' => 'ROLE-ADMINISTRATOR', 'Role_Name' => 'ADMINISTRATOR', 'Is_Active' => 'TRUE'], ['Role_ID' => 'ROLE-TEACHER', 'Role_Name' => 'TEACHER', 'Is_Active' => 'TRUE'],
         ]));
         $roles->shouldReceive('findById')->andReturnUsing(fn ($id) => ['Role_Name' => str_replace('ROLE-', '', $id), 'Is_Active' => 'TRUE']);
         $students = Mockery::mock(StudentRepositoryInterface::class);
-        $students->shouldReceive('fetchAll')->andReturn(collect([['Student_ID' => 'STD-1', 'User_ID' => 'USR-STUDENT', 'Is_Active' => 'TRUE']]));
+        $students->shouldReceive('fetchAll')->andReturn(collect([
+            ['Student_ID' => 'STD-1', 'User_ID' => 'USR-STUDENT', 'Is_Active' => 'TRUE'],
+            ['Student_ID' => 'STD-2', 'User_ID' => 'USR-STUDENT-2', 'Is_Active' => 'TRUE'],
+        ]));
         $batches = Mockery::mock(BatchRepositoryInterface::class);
         $batches->shouldReceive('findById')->andReturnNull();
         $classes = Mockery::mock(ClassRepositoryInterface::class);
@@ -108,7 +126,7 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         {
             public function fetchAll()
             {
-                return collect([$this->findById('ANC-1'), $this->findById('ANC-LEGACY'), $this->findById('ANC-INACTIVE')]);
+                return collect([$this->findById('ANC-1'), $this->findById('ANC-LEGACY'), $this->findById('ANC-INACTIVE'), $this->findById('ANC-CREATOR'), $this->findById('ANC-OTHER-CREATOR')]);
             }
 
             public function findById(string $id)
@@ -117,6 +135,8 @@ class AnnouncementCommentsAndStickersTest extends TestCase
                     'ANC-1' => ['Announcement_ID' => 'ANC-1', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT', 'Title' => 'Tes', 'Content' => 'Isi', 'Is_Active' => 'TRUE', 'Status' => 'PUBLISHED', 'Publish_Date' => '2020-01-01', 'Expired_Date' => '2099-01-01'],
                     'ANC-LEGACY' => ['Announcement_ID' => 'ANC-LEGACY', 'Audience_Type' => null, 'Target_Role' => 'STUDENT', 'Target_ID' => null, 'Title' => 'Pengumuman Lama Admin', 'Content' => 'Isi lama', 'Is_Active' => 'TRUE', 'Publish_Date' => '2020-01-01', 'Expired_Date' => null, 'Created_By' => 'USR-ADMIN'],
                     'ANC-INACTIVE' => ['Announcement_ID' => 'ANC-INACTIVE', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT', 'Title' => 'Nonaktif', 'Content' => 'Isi', 'Is_Active' => 'FALSE', 'Status' => 'INACTIVE', 'Publish_Date' => '2020-01-01', 'Expired_Date' => '2099-01-01'],
+                    'ANC-CREATOR' => ['Announcement_ID' => 'ANC-CREATOR', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT', 'Title' => 'Pengumuman Guru Pemilik', 'Content' => 'Isi untuk siswa', 'Category' => 'Akademik', 'Priority' => 'HIGH', 'Is_Active' => 'TRUE', 'Status' => 'PUBLISHED', 'Publish_Date' => '2020-01-01', 'Expired_Date' => '2099-01-01', 'Created_At' => '2026-10-10 08:00:00', 'Created_By' => 'USR-TEACHER'],
+                    'ANC-OTHER-CREATOR' => ['Announcement_ID' => 'ANC-OTHER-CREATOR', 'Audience_Type' => 'ROLE', 'Target_Role' => 'STUDENT', 'Title' => 'Pengumuman Guru Lain', 'Content' => 'Rahasia pengelola lain', 'Is_Active' => 'TRUE', 'Status' => 'PUBLISHED', 'Publish_Date' => '2020-01-01', 'Expired_Date' => '2099-01-01', 'Created_By' => 'USR-TEACHER-2'],
                     default => null,
                 };
             }
@@ -142,14 +162,27 @@ class AnnouncementCommentsAndStickersTest extends TestCase
             }
         };
         $this->announcements = new AnnouncementService($repo, $visibility);
-        $this->comments = new AnnouncementCommentService($this->announcements, $visibility);
+        $employees = Mockery::mock(EmployeeRepositoryInterface::class);
+        $employees->shouldReceive('fetchAll')->andReturn(collect([
+            ['Employee_ID' => 'EMP-TEACHER', 'User_ID' => 'USR-TEACHER'],
+            ['Employee_ID' => 'EMP-TEACHER-2', 'User_ID' => 'USR-TEACHER-2'],
+        ]));
+        $employeeService = Mockery::mock(EmployeeService::class);
+        $employeeService->shouldReceive('getProfilePhotoPath')->andReturnNull();
+        $avatars = new AvatarResolver($employees, $students, $employeeService);
+        $this->comments = new AnnouncementCommentService($this->announcements, $visibility, $avatars);
         $this->stickers = new StickerLibraryService;
+        $this->app->instance(AvatarResolver::class, $avatars);
+        $this->app->instance(ClassService::class, Mockery::mock(ClassService::class));
         $this->app->instance(AnnouncementService::class, $this->announcements);
         $this->app->instance(AnnouncementCommentService::class, $this->comments);
         $this->app->instance(StickerLibraryService::class, $this->stickers);
         $this->student = new GenericUser(['id' => 'USR-STUDENT', 'User_ID' => 'USR-STUDENT', 'Role_ID' => 'ROLE-STUDENT']);
         $this->outsider = new GenericUser(['id' => 'USR-HR', 'User_ID' => 'USR-HR', 'Role_ID' => 'ROLE-HR']);
         $this->admin = new GenericUser(['id' => 'USR-ADMIN', 'User_ID' => 'USR-ADMIN', 'Role_ID' => 'ROLE-ADMINISTRATOR']);
+        $this->secondStudent = new GenericUser(['id' => 'USR-STUDENT-2', 'User_ID' => 'USR-STUDENT-2', 'Role_ID' => 'ROLE-STUDENT']);
+        $this->teacher = new GenericUser(['id' => 'USR-TEACHER', 'User_ID' => 'USR-TEACHER', 'Role_ID' => 'ROLE-TEACHER']);
+        $this->otherTeacher = new GenericUser(['id' => 'USR-TEACHER-2', 'User_ID' => 'USR-TEACHER-2', 'Role_ID' => 'ROLE-TEACHER']);
     }
 
     public function test_audience_can_send_text_and_sticker_while_non_audience_is_denied(): void
@@ -278,6 +311,82 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         $secondPage = $this->comments->paginate('ANC-1', $this->student);
         $this->assertCount(2, $secondPage->items());
         $this->assertTrue(collect($secondPage->items())->contains(fn ($row): bool => $row->Comment_ID === 'CMT-HISTORICAL-STICKER' && str_contains((string) $row->Sticker_URL, 'stickers/off.webp')));
+    }
+
+    public function test_comment_avatar_uses_each_commenters_canonical_profile_and_safe_fallback(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('profiles/student_std-2_avatar.WEBP', 'student-b');
+        $this->comments->createText('ANC-1', $this->student, 'Tanpa foto profil');
+        $this->comments->createText('ANC-1', $this->secondStudent, 'Dengan foto profil');
+
+        $comments = $this->comments->paginate('ANC-1', $this->student);
+        $rows = $comments->getCollection()->keyBy('User_ID');
+        $this->assertNull($rows['USR-STUDENT']->Avatar_URL);
+        $this->assertStringContainsString('student_std-2_avatar.WEBP', $rows['USR-STUDENT-2']->Avatar_URL);
+
+        view()->share('errors', new ViewErrorBag);
+        $html = view('announcements.comments.thread', [
+            'mode' => 'full',
+            'announcement' => ['Announcement_ID' => 'ANC-1'],
+            'comments' => $comments,
+            'showComposer' => false,
+        ])->render();
+        $this->assertStringContainsString('Foto profil Siswa A tidak tersedia', $html);
+        $this->assertStringContainsString('student_std-2_avatar.WEBP', $html);
+        $this->assertStringContainsString('onerror=', $html);
+    }
+
+    public function test_creator_detail_shows_paginated_active_thread_without_granting_global_moderation(): void
+    {
+        $ids = [];
+        for ($index = 1; $index <= 27; $index++) {
+            $id = $this->comments->createText('ANC-CREATOR', $this->student, sprintf('Komentar creator [%02d]', $index));
+            DB::table('ANNOUNCEMENT_COMMENT')->where('Comment_ID', $id)->update([
+                'Created_At' => sprintf('2026-10-10 09:%02d:00', $index),
+            ]);
+            $ids[] = $id;
+        }
+        $this->comments->delete('ANC-CREATOR', $ids[0], $this->student);
+
+        $firstPage = $this->actingAs($this->teacher)
+            ->get(route('announcements.show', 'ANC-CREATOR'));
+        $firstPage->assertOk()
+            ->assertSee('Pengumuman Guru Pemilik')
+            ->assertSee('Guru Pemilik')
+            ->assertSee('Akademik')
+            ->assertSee('26 komentar aktif')
+            ->assertSee('Komentar creator [02]')
+            ->assertSee('Komentar creator [26]')
+            ->assertDontSee('Komentar creator [01]')
+            ->assertDontSee('Komentar creator [27]')
+            ->assertDontSee('Tulis komentar...')
+            ->assertDontSee('Hapus komentar');
+
+        $this->get(route('announcements.show', ['id' => 'ANC-CREATOR', 'page' => 2]))
+            ->assertOk()
+            ->assertSee('Komentar creator [27]')
+            ->assertDontSee('Komentar creator [01]');
+        $this->assertSame(26, $this->comments->paginateForManager('ANC-CREATOR', $this->teacher)->total());
+    }
+
+    public function test_teacher_creator_cannot_read_another_creators_thread_but_administrator_can(): void
+    {
+        $this->comments->createText('ANC-OTHER-CREATOR', $this->student, 'Komentar privat sesuai policy');
+
+        $this->actingAs($this->teacher)
+            ->get(route('announcements.show', 'ANC-OTHER-CREATOR'))
+            ->assertForbidden();
+        try {
+            $this->comments->paginateForManager('ANC-OTHER-CREATOR', $this->teacher);
+            $this->fail('Teacher accessed another creator thread.');
+        } catch (AuthorizationException) {
+        }
+
+        $this->actingAs($this->admin)
+            ->get(route('announcements.show', 'ANC-OTHER-CREATOR'))
+            ->assertOk()
+            ->assertSee('Komentar privat sesuai policy');
     }
 
     public function test_favorites_are_idempotent_isolated_and_reversible(): void
@@ -476,5 +585,43 @@ class AnnouncementCommentsAndStickersTest extends TestCase
             ->assertSee('Tulis komentar...')
             ->assertSee('Lihat Semua Pengumuman')
             ->assertSee('Lihat Detail');
+    }
+
+    public function test_batched_feed_preview_does_not_add_database_queries_per_commenter(): void
+    {
+        for ($index = 1; $index <= 4; $index++) {
+            $actor = $index % 2 === 0 ? $this->secondStudent : $this->student;
+            $this->comments->createText('ANC-1', $actor, 'Komentar batch '.$index);
+            $this->comments->createText('ANC-CREATOR', $actor, 'Komentar creator batch '.$index);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $threads = $this->comments->latestForAnnouncements(['ANC-1', 'ANC-CREATOR'], $this->student);
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertCount(2, $threads);
+        $this->assertCount(3, $threads['ANC-1']);
+        $this->assertCount(3, $threads['ANC-CREATOR']);
+        $this->assertCount(1, $queries, 'Feed comments must be loaded with one windowed query.');
+    }
+
+    public function test_shared_social_feed_views_keep_mobile_avatar_composer_and_bottom_nav_contracts(): void
+    {
+        $thread = file_get_contents(resource_path('views/announcements/comments/thread.blade.php'));
+        $composer = file_get_contents(resource_path('views/announcements/comments/composer.blade.php'));
+        $avatar = file_get_contents(resource_path('views/components/resolved-avatar.blade.php'));
+        $creatorDetail = file_get_contents(resource_path('views/academic/announcements/show.blade.php'));
+        $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
+
+        $this->assertStringContainsString('flex min-w-0 gap-3', $thread);
+        $this->assertStringContainsString('[overflow-wrap:anywhere]', $thread);
+        $this->assertStringContainsString('flex flex-wrap items-center justify-between gap-2', $composer);
+        $this->assertStringContainsString('min-h-11', $composer);
+        $this->assertStringContainsString('object-cover', $avatar);
+        $this->assertStringContainsString('onerror=', $avatar);
+        $this->assertStringContainsString('pb-24 sm:pb-8', $creatorDetail);
+        $this->assertStringContainsString('<x-mobile-bottom-nav', $layout);
     }
 }
