@@ -99,6 +99,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/announcements/{id}', [AnnouncementFeedController::class, 'show'])->name('announcement-feed.show');
     Route::post('/announcements/{announcementId}/comments', [AnnouncementCommentController::class, 'store'])
         ->middleware('throttle:10,1')->name('announcement-comments.store');
+    Route::get('/announcements/{announcementId}/mentions', [AnnouncementCommentController::class, 'mentions'])
+        ->middleware('throttle:30,1')->name('announcement-comments.mentions');
+    Route::get('/announcements/{announcementId}/gifs', [AnnouncementCommentController::class, 'gifs'])
+        ->middleware('throttle:20,1')->name('announcement-comments.gifs');
     Route::delete('/announcements/{announcementId}/comments/{commentId}', [AnnouncementCommentController::class, 'destroy'])
         ->name('announcement-comments.destroy');
     Route::get('/announcement-stickers', [StickerController::class, 'index'])->name('announcement-stickers.index');
@@ -109,7 +113,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [StickerAdminController::class, 'index'])->name('index');
         Route::post('/packs', [StickerAdminController::class, 'storePack'])->name('packs.store');
         Route::put('/packs/{id}', [StickerAdminController::class, 'updatePack'])->name('packs.update');
-        Route::post('/', [StickerAdminController::class, 'storeSticker'])->name('store');
+        Route::post('/', [StickerAdminController::class, 'storeSticker'])->middleware('throttle:10,1')->name('store');
         Route::put('/{id}', [StickerAdminController::class, 'updateSticker'])->name('update');
     });
 

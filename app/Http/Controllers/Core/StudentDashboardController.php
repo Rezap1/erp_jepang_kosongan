@@ -27,16 +27,19 @@ class StudentDashboardController extends Controller
 
         if ($announcements->isNotEmpty()) {
             $announcementIds = $announcements->pluck('Announcement_ID');
-            $counts = $this->commentService->counts($announcementIds);
+            $stats = $this->commentService->discussionStats($announcementIds);
             $latest = $this->commentService->latestForAnnouncements($announcementIds, $user, 3);
             $authors = $this->commentService->userProfiles($announcements->pluck('Created_By'));
 
-            $announcements = $announcements->map(function ($announcement) use ($counts, $latest, $authors): array {
+            $announcements = $announcements->map(function ($announcement) use ($stats, $latest, $authors): array {
                 $announcement = (array) $announcement;
                 $id = (string) ($announcement['Announcement_ID'] ?? '');
                 $authorId = trim((string) ($announcement['Created_By'] ?? ''));
                 $author = $authors[$authorId] ?? null;
-                $announcement['Comment_Count'] = $counts[$id] ?? 0;
+                $rowStats = $stats[$id] ?? ['total' => 0, 'roots' => 0, 'replies' => 0];
+                $announcement['Comment_Count'] = $rowStats['total'];
+                $announcement['Comment_Root_Count'] = $rowStats['roots'];
+                $announcement['Comment_Reply_Count'] = $rowStats['replies'];
                 $announcement['Latest_Comments'] = $latest[$id] ?? collect();
                 $announcement['Creator_Name'] = $author?->User_Name ?: $author?->Username ?: ($authorId ?: 'WMS');
                 $announcement['Creator_Role'] = $author?->Role_Name ?: 'WMS';

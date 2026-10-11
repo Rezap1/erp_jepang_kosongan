@@ -36,11 +36,11 @@ class StickerAdminController extends Controller
         $data = $request->validate([
             'Sticker_Pack_ID' => 'required|string|max:191', 'Name' => 'required|string|max:120',
             'Sort_Order' => 'nullable|integer|min:0|max:9999', 'Is_Active' => 'nullable|boolean',
-            'Sticker_File' => 'required|file|mimes:png,webp|max:2048|dimensions:min_width=32,min_height=32,max_width=1024,max_height=1024',
+            'Sticker_File' => 'required|file|mimes:png,webp,gif|max:2048|dimensions:min_width=32,min_height=32,max_width=1024,max_height=1024',
         ]);
         $this->stickers->uploadSticker($data, $request->file('Sticker_File'));
 
-        return back()->with('success', 'Stiker diunggah.');
+        return back()->with('success', 'Media diunggah.');
     }
 
     public function updateSticker(Request $request, string $id)

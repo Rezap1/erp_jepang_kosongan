@@ -9,6 +9,42 @@ use Tests\TestCase;
 
 class AnnouncementV2MigrationTest extends TestCase
 {
+    public function test_social_interaction_migration_preserves_existing_comments_through_up_down_up(): void
+    {
+        foreach (['ANNOUNCEMENT_COMMENT_MENTION', 'USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_USER'] as $table) {
+            Schema::dropIfExists($table);
+        }
+        Schema::create('MASTER_USER', fn (Blueprint $table) => $table->string('User_ID')->primary());
+        Schema::create('MASTER_ANNOUNCEMENT', function (Blueprint $table): void {
+            $table->string('Announcement_ID')->primary();
+            $table->string('Target_Role')->nullable();
+            $table->string('Target_ID')->nullable();
+        });
+        (require database_path('migrations/wms_mysql/2026_10_06_000001_add_announcement_v2.php'))->up();
+        DB::table('MASTER_USER')->insert(['User_ID' => 'USR-SENTINEL']);
+        DB::table('MASTER_ANNOUNCEMENT')->insert(['Announcement_ID' => 'ANN-SENTINEL']);
+        DB::table('ANNOUNCEMENT_COMMENT')->insert([
+            'Comment_ID' => 'COM-SENTINEL', 'Announcement_ID' => 'ANN-SENTINEL',
+            'User_ID' => 'USR-SENTINEL', 'Comment_Type' => 'TEXT', 'Comment_Text' => 'Tetap ada',
+        ]);
+
+        $migration = require database_path('migrations/wms_mysql/2026_10_10_000001_add_announcement_social_interactions.php');
+        $migration->up();
+        $this->assertTrue(Schema::hasColumns('ANNOUNCEMENT_COMMENT', ['Parent_Comment_ID', 'External_Media_Provider', 'External_Media_ID', 'External_Media_URL', 'External_Media_Preview_URL', 'External_Media_Alt']));
+        $this->assertTrue(Schema::hasTable('ANNOUNCEMENT_COMMENT_MENTION'));
+        $this->assertDatabaseHas('ANNOUNCEMENT_COMMENT', ['Comment_ID' => 'COM-SENTINEL', 'Comment_Text' => 'Tetap ada']);
+
+        $migration->down();
+        $this->assertFalse(Schema::hasTable('ANNOUNCEMENT_COMMENT_MENTION'));
+        $this->assertFalse(Schema::hasColumn('ANNOUNCEMENT_COMMENT', 'Parent_Comment_ID'));
+        $this->assertDatabaseHas('ANNOUNCEMENT_COMMENT', ['Comment_ID' => 'COM-SENTINEL', 'Comment_Text' => 'Tetap ada']);
+
+        $migration->up();
+        $this->assertTrue(Schema::hasTable('ANNOUNCEMENT_COMMENT_MENTION'));
+        $this->assertTrue(Schema::hasColumn('ANNOUNCEMENT_COMMENT', 'Parent_Comment_ID'));
+        $this->assertDatabaseHas('ANNOUNCEMENT_COMMENT', ['Comment_ID' => 'COM-SENTINEL', 'Comment_Text' => 'Tetap ada']);
+    }
+
     public function test_migration_is_additive_and_supports_up_down_up(): void
     {
         foreach (['ANNOUNCEMENT_AUDIENCE_CLASS', 'ANNOUNCEMENT_AUDIENCE_ROLE', 'USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_CLASS', 'MASTER_BATCH', 'MASTER_USER', 'MASTER_ROLE'] as $table) {

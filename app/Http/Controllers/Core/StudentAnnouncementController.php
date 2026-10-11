@@ -46,10 +46,11 @@ class StudentAnnouncementController extends Controller
         $announcement['Start_At_Label'] = $this->formatDate($this->announcementService->startAt($announcement));
         $announcement['Expires_At_Label'] = $this->formatDate($this->announcementService->expiresAt($announcement));
         $comments = $this->commentService->paginate($id, Auth::user());
+        $commentStats = $this->commentService->discussionStats([$id])[$id] ?? ['total' => 0, 'roots' => 0, 'replies' => 0];
         $library = $this->stickerLibrary->picker(ActorIdentity::required());
         $currentUserAvatar = $this->avatarResolver->resolve(Auth::user());
 
-        return view('student.portal.announcements.show', compact('announcement', 'comments', 'library', 'currentUserAvatar'));
+        return view('student.portal.announcements.show', compact('announcement', 'comments', 'commentStats', 'library', 'currentUserAvatar'));
     }
 
     protected function currentStudent(): array

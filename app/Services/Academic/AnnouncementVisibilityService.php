@@ -26,6 +26,8 @@ final class AnnouncementVisibilityService
 
     private ?bool $relationsReady = null;
 
+    private ?Collection $studentSnapshot = null;
+
     public function __construct(
         private RoleService $roles,
         private StudentRepositoryInterface $students,
@@ -257,7 +259,7 @@ final class AnnouncementVisibilityService
             return null;
         }
 
-        $student = collect($this->students->fetchAll())->first(
+        $student = ($this->studentSnapshot ??= collect($this->students->fetchAll()))->first(
             fn ($row): bool => strcasecmp(trim((string) ($row['User_ID'] ?? '')), $userId) === 0
                 && $this->active($row['Is_Active'] ?? true)
         );

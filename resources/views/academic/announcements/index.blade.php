@@ -102,6 +102,7 @@
                             <span aria-hidden="true">💬</span>&nbsp;{{ $ann['Comment_Count'] ?? 0 }} Komentar · Lihat Detail
                         </a>
                     </div>
+                    <p class="mt-1 text-right text-[11px] text-slate-400">{{ $ann['Comment_Root_Count'] ?? 0 }} utama · {{ $ann['Comment_Reply_Count'] ?? 0 }} balasan</p>
                 </div>
             @endforeach
         </div>

@@ -69,13 +69,13 @@ class AnnouncementController extends Controller
     {
         $announcements = $this->managedAnnouncements();
         try {
-            $commentCounts = $this->commentService->counts($announcements->pluck('Announcement_ID'));
+            $commentStats = $this->commentService->discussionStats($announcements->pluck('Announcement_ID'));
             $creatorProfiles = $this->commentService->userProfiles($announcements->pluck('Created_By'));
         } catch (\Throwable) {
-            $commentCounts = [];
+            $commentStats = [];
             $creatorProfiles = [];
         }
-        $announcements = $announcements->map(function ($announcement) use ($commentCounts, $creatorProfiles) {
+        $announcements = $announcements->map(function ($announcement) use ($commentStats, $creatorProfiles) {
             $creator = $creatorProfiles[$announcement['Created_By'] ?? ''] ?? null;
             $announcement['Audience_Label'] = $this->announcementService->audienceLabel((array) $announcement);
             $announcement['Priority_Label'] = $this->announcementService->priorityLabel($announcement['Priority'] ?? 'NORMAL');
@@ -83,7 +83,10 @@ class AnnouncementController extends Controller
             $announcement['Start_Label'] = $this->formatDate($this->announcementService->startAt((array) $announcement));
             $announcement['Expiry_Label'] = $this->formatDate($this->announcementService->expiresAt((array) $announcement));
             $announcement['Can_Manage'] = $this->canManage((array) $announcement);
-            $announcement['Comment_Count'] = $commentCounts[$announcement['Announcement_ID']] ?? 0;
+            $rowStats = $commentStats[$announcement['Announcement_ID']] ?? ['total' => 0, 'roots' => 0, 'replies' => 0];
+            $announcement['Comment_Count'] = $rowStats['total'];
+            $announcement['Comment_Root_Count'] = $rowStats['roots'];
+            $announcement['Comment_Reply_Count'] = $rowStats['replies'];
             $announcement['Creator_Name'] = $creator->User_Name ?? $creator->Username ?? $announcement['Created_By'] ?? 'WMS';
             $announcement['Creator_Avatar_URL'] = $creator->Avatar_URL ?? null;
 
@@ -118,6 +121,7 @@ class AnnouncementController extends Controller
         }
         $this->authorizeTeacherOwnership((array) $announcement);
         $comments = $this->commentService->paginateForManager((string) $id, auth()->user());
+        $commentStats = $this->commentService->discussionStats([(string) $id])[(string) $id] ?? ['total' => 0, 'roots' => 0, 'replies' => 0];
         $creatorProfiles = $this->commentService->userProfiles([$announcement['Created_By'] ?? null]);
         $creator = $creatorProfiles[$announcement['Created_By'] ?? ''] ?? null;
         $announcement['Audience_Label'] = $this->announcementService->audienceLabel((array) $announcement);
@@ -126,7 +130,9 @@ class AnnouncementController extends Controller
         $announcement['Start_Label'] = $this->formatDate($this->announcementService->startAt((array) $announcement));
         $announcement['Expiry_Label'] = $this->formatDate($this->announcementService->expiresAt((array) $announcement));
         $announcement['Can_Manage'] = $this->canManage((array) $announcement);
-        $announcement['Comment_Count'] = $comments->total();
+        $announcement['Comment_Count'] = $commentStats['total'];
+        $announcement['Comment_Root_Count'] = $commentStats['roots'];
+        $announcement['Comment_Reply_Count'] = $commentStats['replies'];
         $announcement['Creator_Name'] = $creator->User_Name ?? $creator->Username ?? $announcement['Created_By'] ?? 'WMS';
         $announcement['Creator_Role'] = $creator->Role_Name ?? 'Pengguna';
         $announcement['Creator_Avatar_URL'] = $creator->Avatar_URL ?? null;

@@ -16,6 +16,7 @@
         'mode' => 'full',
         'announcement' => $announcement,
         'comments' => $comments,
+        'commentStats' => $commentStats ?? null,
         'currentUserAvatar' => $currentUserAvatar,
     ])
 </div>

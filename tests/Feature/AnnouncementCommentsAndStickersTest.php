@@ -6,16 +6,20 @@ use App\Interfaces\GoogleSheets\AnnouncementRepositoryInterface;
 use App\Interfaces\GoogleSheets\BatchRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\EmployeeRepositoryInterface;
+use App\Interfaces\GoogleSheets\NotificationRepositoryInterface;
 use App\Interfaces\GoogleSheets\RoleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Services\Academic\AnnouncementCommentService;
 use App\Services\Academic\AnnouncementService;
 use App\Services\Academic\AnnouncementVisibilityService;
+use App\Services\Academic\DisabledExternalGifProvider;
+use App\Services\Academic\ExternalGifSearchService;
 use App\Services\Academic\StickerLibraryService;
 use App\Services\Core\AvatarResolver;
 use App\Services\Core\ClassService;
 use App\Services\Core\EmployeeService;
 use App\Services\Core\GlobalSearchService;
+use App\Services\Core\NotificationService;
 use App\Services\Core\RoleService;
 use App\Services\Dashboard\StudentDashboardService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -49,10 +53,14 @@ class AnnouncementCommentsAndStickersTest extends TestCase
 
     private GenericUser $otherTeacher;
 
+    private object $notificationRepository;
+
+    private NotificationService $notificationService;
+
     protected function setUp(): void
     {
         parent::setUp();
-        foreach (['ANNOUNCEMENT_AUDIENCE_CLASS', 'ANNOUNCEMENT_AUDIENCE_ROLE', 'USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_CLASS', 'MASTER_BATCH', 'MASTER_USER', 'MASTER_ROLE'] as $table) {
+        foreach (['ANNOUNCEMENT_COMMENT_MENTION', 'ANNOUNCEMENT_AUDIENCE_CLASS', 'ANNOUNCEMENT_AUDIENCE_ROLE', 'USER_STICKER_FAVORITE', 'ANNOUNCEMENT_COMMENT', 'MASTER_STICKER', 'MASTER_STICKER_PACK', 'MASTER_ANNOUNCEMENT', 'MASTER_CLASS', 'MASTER_BATCH', 'MASTER_USER', 'MASTER_ROLE'] as $table) {
             Schema::dropIfExists($table);
         }
         Schema::create('MASTER_ROLE', function (Blueprint $table): void {
@@ -64,6 +72,7 @@ class AnnouncementCommentsAndStickersTest extends TestCase
             $table->string('Role_ID');
             $table->string('Full_Name')->nullable();
             $table->string('Username')->nullable();
+            $table->boolean('Is_Active')->default(true);
         });
         Schema::create('MASTER_BATCH', function (Blueprint $table): void {
             $table->string('Batch_ID')->primary();
@@ -80,6 +89,7 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         });
         (require database_path('migrations/wms_mysql/2026_10_06_000001_add_announcement_v2.php'))->up();
         (require database_path('migrations/wms_mysql/2026_10_06_000002_add_announcement_multi_audience.php'))->up();
+        (require database_path('migrations/wms_mysql/2026_10_10_000001_add_announcement_social_interactions.php'))->up();
         DB::table('MASTER_ROLE')->insert([
             ['Role_ID' => 'ROLE-STUDENT', 'Role_Name' => 'STUDENT'], ['Role_ID' => 'ROLE-HR', 'Role_Name' => 'HR'], ['Role_ID' => 'ROLE-ADMINISTRATOR', 'Role_Name' => 'ADMINISTRATOR'], ['Role_ID' => 'ROLE-TEACHER', 'Role_Name' => 'TEACHER'],
         ]);
@@ -170,12 +180,57 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         $employeeService = Mockery::mock(EmployeeService::class);
         $employeeService->shouldReceive('getProfilePhotoPath')->andReturnNull();
         $avatars = new AvatarResolver($employees, $students, $employeeService);
-        $this->comments = new AnnouncementCommentService($this->announcements, $visibility, $avatars);
+        $this->notificationRepository = new class implements NotificationRepositoryInterface
+        {
+            public array $rows = [];
+
+            public function getAll()
+            {
+                return collect(array_values($this->rows));
+            }
+
+            public function getById($id)
+            {
+                return $this->rows[$id] ?? null;
+            }
+
+            public function create(array $data)
+            {
+                $this->rows[$data['Notification_ID']] = $data;
+
+                return true;
+            }
+
+            public function update($id, array $data)
+            {
+                if (! isset($this->rows[$id])) {
+                    return false;
+                }
+                $this->rows[$id] = array_merge($this->rows[$id], $data);
+
+                return true;
+            }
+
+            public function delete($id)
+            {
+                unset($this->rows[$id]);
+
+                return true;
+            }
+
+            public function clearCache(): void {}
+        };
+        $notificationService = new NotificationService($this->notificationRepository);
+        $this->notificationService = $notificationService;
+        $externalGifs = new ExternalGifSearchService(new DisabledExternalGifProvider);
+        $this->comments = new AnnouncementCommentService($this->announcements, $visibility, $avatars, $notificationService, $externalGifs);
         $this->stickers = new StickerLibraryService;
         $this->app->instance(AvatarResolver::class, $avatars);
         $this->app->instance(ClassService::class, Mockery::mock(ClassService::class));
         $this->app->instance(AnnouncementService::class, $this->announcements);
         $this->app->instance(AnnouncementCommentService::class, $this->comments);
+        $this->app->instance(NotificationService::class, $notificationService);
+        $this->app->instance(ExternalGifSearchService::class, $externalGifs);
         $this->app->instance(StickerLibraryService::class, $this->stickers);
         $this->student = new GenericUser(['id' => 'USR-STUDENT', 'User_ID' => 'USR-STUDENT', 'Role_ID' => 'ROLE-STUDENT']);
         $this->outsider = new GenericUser(['id' => 'USR-HR', 'User_ID' => 'USR-HR', 'Role_ID' => 'ROLE-HR']);
@@ -430,13 +485,19 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         $this->assertDatabaseHas('MASTER_STICKER', ['Name' => 'Semangat WEBP', 'Mime_Type' => 'image/webp']);
     }
 
-    public function test_gif_executable_and_oversize_sticker_uploads_are_rejected(): void
+    public function test_gif_is_accepted_while_executable_and_oversize_uploads_are_rejected(): void
     {
         Storage::fake('public');
         $this->actingAs($this->admin);
+        $this->post(route('admin.stickers.store'), [
+            'Sticker_Pack_ID' => 'PACK-1', 'Name' => 'Animasi',
+            'Sticker_File' => UploadedFile::fake()->image('animasi.gif', 64, 64),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('MASTER_STICKER', ['Name' => 'Animasi', 'Mime_Type' => 'image/gif']);
+
         foreach ([
-            UploadedFile::fake()->image('animasi.gif', 64, 64),
             UploadedFile::fake()->create('bahaya.exe', 10, 'application/x-msdownload'),
+            UploadedFile::fake()->createWithContent('palsu.png', '<script>alert(1)</script>'),
             UploadedFile::fake()->create('besar.png', 2050, 'image/png'),
         ] as $file) {
             $this->post(route('admin.stickers.store'), [
@@ -604,7 +665,110 @@ class AnnouncementCommentsAndStickersTest extends TestCase
         $this->assertCount(2, $threads);
         $this->assertCount(3, $threads['ANC-1']);
         $this->assertCount(3, $threads['ANC-CREATOR']);
-        $this->assertCount(1, $queries, 'Feed comments must be loaded with one windowed query.');
+        $this->assertCount(2, $queries, 'Feed comments and canonical mentions must use two bounded batch queries.');
+    }
+
+    public function test_reply_depth_parent_integrity_stats_and_soft_delete_are_enforced(): void
+    {
+        $root = $this->comments->createText('ANC-1', $this->student, 'Komentar utama');
+        $reply = $this->comments->createText('ANC-1', $this->secondStudent, 'Balasan', $root);
+
+        $this->assertDatabaseHas('ANNOUNCEMENT_COMMENT', ['Comment_ID' => $reply, 'Parent_Comment_ID' => $root]);
+        $this->assertSame(['total' => 2, 'roots' => 1, 'replies' => 1], $this->comments->discussionStats(['ANC-1'])['ANC-1']);
+
+        foreach (['CMT-MISSING', $reply] as $invalidParent) {
+            try {
+                $this->comments->createText('ANC-1', $this->student, 'Tidak valid', $invalidParent);
+                $this->fail('Invalid reply parent accepted.');
+            } catch (\InvalidArgumentException) {
+            }
+        }
+        try {
+            $this->comments->createText('ANC-CREATOR', $this->student, 'Lintas pengumuman', $root);
+            $this->fail('Cross-announcement reply parent accepted.');
+        } catch (\InvalidArgumentException) {
+        }
+
+        $this->comments->delete('ANC-1', $root, $this->student);
+        $this->assertSame(['total' => 1, 'roots' => 0, 'replies' => 1], $this->comments->discussionStats(['ANC-1'])['ANC-1']);
+        try {
+            $this->comments->createText('ANC-1', $this->student, 'Ke induk terhapus', $root);
+            $this->fail('Deleted reply parent accepted.');
+        } catch (\InvalidArgumentException) {
+        }
+    }
+
+    public function test_mentions_are_canonical_audience_scoped_and_plain_at_text_is_not_a_mention(): void
+    {
+        DB::table('MASTER_USER')->insert([
+            'User_ID' => 'USR-STUDENT-OFF', 'Role_ID' => 'ROLE-STUDENT', 'Full_Name' => 'Siswa Nonaktif',
+            'Username' => 'off', 'Is_Active' => false,
+        ]);
+        $this->actingAs($this->student)
+            ->getJson(route('announcement-comments.mentions', ['announcementId' => 'ANC-1', 'q' => 'Siswa']))
+            ->assertOk()
+            ->assertJsonCount(2, 'results')
+            ->assertJsonMissing(['user_id' => 'USR-STUDENT-OFF']);
+        $this->getJson(route('announcement-comments.mentions', ['announcementId' => 'ANC-1', 'q' => 'HR']))
+            ->assertOk()->assertJsonCount(0, 'results');
+
+        $comment = $this->comments->createText('ANC-1', $this->student, 'Halo @Siswa B', null, ['USR-STUDENT-2']);
+        $this->assertDatabaseHas('ANNOUNCEMENT_COMMENT_MENTION', ['Comment_ID' => $comment, 'Mentioned_User_ID' => 'USR-STUDENT-2']);
+        $plain = $this->comments->createText('ANC-1', $this->student, 'Halo @Siswa B tanpa pilihan');
+        $this->assertDatabaseMissing('ANNOUNCEMENT_COMMENT_MENTION', ['Comment_ID' => $plain]);
+
+        try {
+            $this->comments->createText('ANC-1', $this->student, 'Mention di luar audiens', null, ['USR-HR']);
+            $this->fail('Out-of-audience mention accepted.');
+        } catch (\InvalidArgumentException) {
+        }
+    }
+
+    public function test_reply_and_mention_notifications_are_deduplicated_exclude_self_and_can_be_marked_read(): void
+    {
+        $root = $this->comments->createText('ANC-1', $this->student, 'Induk');
+        $reply = $this->comments->createText('ANC-1', $this->secondStudent, 'Membalas dan mention', $root, ['USR-STUDENT']);
+
+        $this->assertCount(1, $this->notificationRepository->rows);
+        $notification = collect($this->notificationRepository->rows)->first();
+        $this->assertSame('USR-STUDENT', $notification['User_ID']);
+        $this->assertSame('Balasan dan mention baru', $notification['Title']);
+        $this->assertSame('AnnouncementComment', $notification['Reference_Type']);
+        $this->assertSame($reply, $notification['Reference_ID']);
+        $this->assertSame('/announcements/ANC-1#comment-'.$reply, $notification['Link']);
+
+        $this->actingAs($this->outsider)
+            ->get(parse_url($notification['Link'], PHP_URL_PATH))
+            ->assertForbidden();
+
+        $this->comments->createText('ANC-1', $this->student, 'Balas diri sendiri', $root, ['USR-STUDENT']);
+        $this->assertCount(1, $this->notificationRepository->rows);
+
+        $this->actingAs($this->student);
+        $this->assertSame(1, $this->notificationService->UnreadCount());
+        $this->assertTrue($this->notificationService->MarkAsRead($notification['Notification_ID']));
+        $this->assertSame('TRUE', $this->notificationRepository->rows[$notification['Notification_ID']]['Is_Read']);
+        $this->assertSame(0, $this->notificationService->UnreadCount());
+    }
+
+    public function test_social_ui_renders_reply_mentions_stats_and_disabled_external_gif_fallback(): void
+    {
+        $root = $this->comments->createText('ANC-1', $this->student, 'Induk sosial');
+        $this->comments->createText('ANC-1', $this->secondStudent, 'Balasan sosial', $root, ['USR-STUDENT']);
+
+        $this->actingAs($this->student)
+            ->get(route('student.portal.announcements.show', 'ANC-1'))
+            ->assertOk()
+            ->assertSee('1 komentar utama')
+            ->assertSee('1 balasan')
+            ->assertSee('Membalas')
+            ->assertSee('Balas')
+            ->assertSeeText('@Siswa A')
+            ->assertSee('Stiker & GIF', false);
+
+        $this->getJson(route('announcement-comments.gifs', ['announcementId' => 'ANC-1', 'q' => 'senyum']))
+            ->assertOk()
+            ->assertJson(['enabled' => false, 'results' => []]);
     }
 
     public function test_shared_social_feed_views_keep_mobile_avatar_composer_and_bottom_nav_contracts(): void

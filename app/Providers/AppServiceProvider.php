@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\ExternalGifProvider;
 use App\Interfaces\GoogleSheets\AcademicYearRepositoryInterface;
 use App\Interfaces\GoogleSheets\AccountRepositoryInterface;
 use App\Interfaces\GoogleSheets\ActivityLogRepositoryInterface;
@@ -95,6 +96,7 @@ use App\Repositories\GoogleSheets\TeacherRepository;
 use App\Repositories\GoogleSheets\TransactionRepository;
 use App\Repositories\GoogleSheets\UserRepository;
 use App\Repositories\GoogleSheets\WorkflowRepository;
+use App\Services\Academic\DisabledExternalGifProvider;
 use App\Services\Core\EnterpriseAutomationService;
 use App\Services\Core\SystemSettingService;
 use App\Services\Core\UserService;
@@ -161,6 +163,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(QuizQuestionRepositoryInterface::class, QuizQuestionRepository::class);
         $this->app->bind(QuizAttemptRepositoryInterface::class, QuizAttemptRepository::class);
         $this->app->bind(QuizResultRepositoryInterface::class, QuizResultRepository::class);
+        $this->app->bind(ExternalGifProvider::class, DisabledExternalGifProvider::class);
         $this->app->singleton(EnterpriseAutomationService::class, function ($app) {
             return new EnterpriseAutomationService;
         });

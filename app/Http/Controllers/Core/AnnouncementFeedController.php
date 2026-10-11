@@ -21,10 +21,13 @@ class AnnouncementFeedController extends Controller
     public function index(Request $request)
     {
         $rows = $this->announcements->getActiveForUser($request->user());
-        $counts = $this->comments->counts($rows->pluck('Announcement_ID'));
-        $rows = $rows->map(function ($row) use ($counts): array {
+        $stats = $this->comments->discussionStats($rows->pluck('Announcement_ID'));
+        $rows = $rows->map(function ($row) use ($stats): array {
             $row = $this->present((array) $row);
-            $row['Comment_Count'] = $counts[$row['Announcement_ID']] ?? 0;
+            $rowStats = $stats[$row['Announcement_ID']] ?? ['total' => 0, 'roots' => 0, 'replies' => 0];
+            $row['Comment_Count'] = $rowStats['total'];
+            $row['Comment_Root_Count'] = $rowStats['roots'];
+            $row['Comment_Reply_Count'] = $rowStats['replies'];
 
             return $row;
         });
@@ -38,9 +41,10 @@ class AnnouncementFeedController extends Controller
         abort_unless($announcement, 403, 'Anda tidak memiliki akses ke pengumuman ini.');
         $announcement = $this->present($announcement);
         $comments = $this->comments->paginate($id, $request->user());
+        $commentStats = $this->comments->discussionStats([$id])[$id] ?? ['total' => 0, 'roots' => 0, 'replies' => 0];
         $library = $this->stickers->picker(ActorIdentity::required());
 
-        return view('announcements.feed.show', compact('announcement', 'comments', 'library'));
+        return view('announcements.feed.show', compact('announcement', 'comments', 'commentStats', 'library'));
     }
 
     private function present(array $row): array

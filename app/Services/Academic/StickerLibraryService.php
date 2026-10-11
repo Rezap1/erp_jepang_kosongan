@@ -81,17 +81,25 @@ final class StickerLibraryService
     public function uploadSticker(array $data, UploadedFile $file): string
     {
         abort_unless($this->connection()->table('MASTER_STICKER_PACK')->where('Sticker_Pack_ID', $data['Sticker_Pack_ID'])->exists(), 422, 'Pack stiker tidak valid.');
+        $fileSize = (int) $file->getSize();
+        abort_unless($file->isValid() && $fileSize > 0 && $fileSize <= 2 * 1024 * 1024, 422, 'Ukuran media harus antara 1 byte dan 2 MB.');
         $image = @getimagesize($file->getRealPath());
         $mime = $image['mime'] ?? '';
-        abort_unless(in_array($mime, ['image/png', 'image/webp'], true), 422, 'Stiker hanya mendukung PNG atau WEBP statis.');
-        $extension = $mime === 'image/png' ? 'png' : 'webp';
+        $extensions = ['image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+        abort_unless(isset($extensions[$mime]), 422, 'Media hanya mendukung PNG, WEBP, atau GIF.');
+        abort_unless(
+            isset($image[0], $image[1]) && $image[0] >= 32 && $image[0] <= 1024 && $image[1] >= 32 && $image[1] <= 1024,
+            422,
+            'Dimensi media harus antara 32 x 32 dan 1024 x 1024 piksel.',
+        );
+        $extension = $extensions[$mime];
         $id = 'STK-'.Str::upper((string) Str::ulid());
         $path = $file->storeAs('stickers/'.strtolower($data['Sticker_Pack_ID']), Str::uuid().'.'.$extension, 'public');
         try {
             $now = now(AnnouncementService::TIMEZONE)->format('Y-m-d H:i:s.u');
             $this->connection()->table('MASTER_STICKER')->insert([
                 'Sticker_ID' => $id, 'Sticker_Pack_ID' => $data['Sticker_Pack_ID'], 'Name' => trim($data['Name']),
-                'File_Path' => $path, 'Mime_Type' => $mime, 'File_Size' => $file->getSize(),
+                'File_Path' => $path, 'Mime_Type' => $mime, 'File_Size' => $fileSize,
                 'Width' => $image[0], 'Height' => $image[1], 'Is_Active' => (bool) ($data['Is_Active'] ?? true),
                 'Sort_Order' => (int) ($data['Sort_Order'] ?? 0), 'Created_At' => $now, 'Updated_At' => $now,
                 'Created_By' => ActorIdentity::required(), 'Updated_By' => ActorIdentity::required(),

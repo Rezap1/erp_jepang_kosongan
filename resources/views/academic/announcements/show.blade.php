@@ -38,7 +38,7 @@
             <dl class="mt-8 grid gap-4 border-t border-slate-100 pt-6 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-2xl bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Kategori</dt><dd class="mt-1 break-words font-bold text-slate-800">{{ $announcement['Category_Label'] }}</dd></div>
                 <div class="rounded-2xl bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Target audiens</dt><dd class="mt-1 break-words font-bold text-slate-800">{{ $announcement['Audience_Label'] ?? '-' }}</dd></div>
-                <div class="rounded-2xl bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Jumlah komentar</dt><dd class="mt-1 font-bold text-slate-800">{{ $announcement['Comment_Count'] }} komentar aktif</dd></div>
+                <div class="rounded-2xl bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Jumlah komentar</dt><dd class="mt-1 font-bold text-slate-800">{{ $announcement['Comment_Count'] }} komentar aktif</dd><p class="mt-1 text-xs text-slate-500">{{ $announcement['Comment_Root_Count'] }} utama · {{ $announcement['Comment_Reply_Count'] }} balasan</p></div>
                 <div class="rounded-2xl bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Waktu publikasi</dt><dd class="mt-1 font-bold text-slate-800">{{ $announcement['Created_Label'] }}</dd></div>
                 <div class="rounded-2xl bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Mulai tayang</dt><dd class="mt-1 font-bold text-slate-800">{{ $announcement['Start_Label'] ?? '-' }}</dd></div>
                 <div class="rounded-2xl bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Berakhir</dt><dd class="mt-1 font-bold text-slate-800">{{ $announcement['Expiry_Label'] ?? '-' }}</dd></div>
@@ -58,6 +58,7 @@
         'announcement' => $announcement,
         'comments' => $comments,
         'commentCount' => $announcement['Comment_Count'],
+        'commentStats' => ['total' => $announcement['Comment_Count'], 'roots' => $announcement['Comment_Root_Count'], 'replies' => $announcement['Comment_Reply_Count']],
         'showComposer' => false,
     ])
 </div>

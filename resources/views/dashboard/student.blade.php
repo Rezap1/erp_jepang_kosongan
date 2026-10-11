@@ -217,6 +217,7 @@
                         'announcement' => $announcement,
                         'comments' => $announcement['Latest_Comments'] ?? collect(),
                         'commentCount' => $announcement['Comment_Count'] ?? 0,
+                        'commentStats' => ['total' => $announcement['Comment_Count'] ?? 0, 'roots' => $announcement['Comment_Root_Count'] ?? 0, 'replies' => $announcement['Comment_Reply_Count'] ?? 0],
                         'detailUrl' => $detailUrl,
                         'currentUserAvatar' => $announcementCommenterAvatar ?? null,
                     ])
