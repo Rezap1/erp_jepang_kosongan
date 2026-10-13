@@ -2,13 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Helpers\SheetValue;
 use App\Interfaces\GoogleSheets\AcademicYearRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\SubjectRepositoryInterface;
 use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
-use App\Helpers\SheetValue;
-use App\Support\Academic\AcademicYearResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -49,10 +48,8 @@ class UpdateScheduleRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $academicYearId = trim((string) $this->input('Academic_Year_ID'));
-
         $this->merge([
-            'Academic_Year_ID' => $academicYearId === '' ? AcademicYearResolver::currentId() : $academicYearId,
+            'Academic_Year_ID' => trim((string) $this->input('Academic_Year_ID')),
             'Start_Time' => $this->timeForValidation($this->input('Start_Time')),
             'End_Time' => $this->timeForValidation($this->input('End_Time')),
         ]);
@@ -81,8 +78,9 @@ class UpdateScheduleRequest extends FormRequest
     {
         return function ($attribute, $value, $fail) use ($repositoryClass, $label) {
             $record = app($repositoryClass)->findById(trim((string) $value));
-            if (!$record) {
+            if (! $record) {
                 $fail("{$label} tidak ditemukan.");
+
                 return;
             }
 
@@ -96,17 +94,14 @@ class UpdateScheduleRequest extends FormRequest
     {
         return function ($attribute, $value, $fail) {
             $value = trim((string) $value);
-            if (AcademicYearResolver::isCurrentId($value)) {
-                return;
-            }
-
             $record = app(AcademicYearRepositoryInterface::class)->findById($value);
-            if (!$record) {
+            if (! $record) {
                 $fail('Tahun ajaran tidak ditemukan.');
+
                 return;
             }
 
-            if (!SheetValue::isInactive((array) $record)) {
+            if (! SheetValue::isInactive((array) $record)) {
                 return;
             }
 

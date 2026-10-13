@@ -2,8 +2,8 @@
 
 namespace App\Services\Academic;
 
+use App\Exceptions\ScheduleConflictException;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
-use App\Support\Academic\AcademicYearResolver;
 use App\Support\Academic\AcademicSheetMapper;
 
 class ScheduleService
@@ -34,7 +34,7 @@ class ScheduleService
     {
         if (isset($data['Start_Time']) && isset($data['End_Time'])) {
             if (strtotime($data['Start_Time']) >= strtotime($data['End_Time'])) {
-                throw new \Exception('Waktu mulai harus sebelum waktu selesai.');
+                throw new ScheduleConflictException('Waktu mulai harus sebelum waktu selesai.');
             }
         }
 
@@ -44,7 +44,8 @@ class ScheduleService
             });
 
         foreach ($all as $item) {
-            if (($item['Academic_Year_ID'] ?? '') === ($data['Academic_Year_ID'] ?? '') && ($item['Day_Of_Week'] ?? '') === ($data['Day_Of_Week'] ?? '')) {
+            if (($item['Academic_Year_ID'] ?? '') === ($data['Academic_Year_ID'] ?? '')
+                && $this->canonicalDay($item['Day_Of_Week'] ?? '') === $this->canonicalDay($data['Day_Of_Week'] ?? '')) {
                 // Check time overlap
                 $start1 = strtotime($data['Start_Time']);
                 $end1 = strtotime($data['End_Time']);
@@ -53,13 +54,13 @@ class ScheduleService
 
                 if ($start1 < $end2 && $end1 > $start2) {
                     if ($item['Teacher_ID'] === ($data['Teacher_ID'] ?? '')) {
-                        throw new \Exception('Jadwal pengajar bentrok dengan jadwal lain.');
+                        throw new ScheduleConflictException('Jadwal pengajar bentrok dengan jadwal lain.');
                     }
                     if ($item['Class_ID'] === ($data['Class_ID'] ?? '')) {
-                        throw new \Exception('Jadwal kelas bentrok dengan jadwal lain.');
+                        throw new ScheduleConflictException('Jadwal kelas bentrok dengan jadwal lain.');
                     }
-                    if (!empty($data['Room']) && $item['Room'] === $data['Room']) {
-                        throw new \Exception('Ruangan sedang digunakan pada waktu tersebut.');
+                    if (! empty($data['Room']) && $item['Room'] === $data['Room']) {
+                        throw new ScheduleConflictException('Ruangan sedang digunakan pada waktu tersebut.');
                     }
                 }
             }
@@ -69,52 +70,58 @@ class ScheduleService
     public function create(array $data)
     {
         $data = $this->normalizePayload($data);
+        if (trim((string) ($data['Academic_Year_ID'] ?? '')) === '') {
+            throw new \InvalidArgumentException('Tahun ajaran wajib dipilih dari master tahun ajaran.');
+        }
         $this->validateSchedule($data);
-        
-        if (!isset($data['Schedule_ID'])) {
+
+        if (! isset($data['Schedule_ID'])) {
             $data['Schedule_ID'] = $this->generateId();
         }
         $data['Is_Active'] = $data['Is_Active'] ?? 'TRUE';
         $data['Created_At'] = now()->toDateTimeString();
-        
+
         $result = $this->repository->create($data);
         $this->repository->clearCache();
         $this->assertReadBackMatches($data['Schedule_ID'], $data);
+
         return $result;
     }
-    
+
     public function update($id, array $data)
     {
-        $existing = $this->getById($id);
-        if (!$existing) {
-            throw new \RuntimeException("Jadwal '{$id}' tidak ditemukan.");
-        }
+        return $this->runTransaction(function () use ($id, $data) {
+            $existing = method_exists($this->repository, 'lockById')
+                ? $this->repository->lockById($id)
+                : $this->getById($id);
+            if (! $existing) {
+                throw new \RuntimeException("Jadwal '{$id}' tidak ditemukan.");
+            }
 
-        unset($data['Schedule_ID'], $data['id']);
-        $data = $this->normalizePayload($data);
-        $merged = array_merge(AcademicSheetMapper::normalizeScheduleRow((array) $existing), $data);
-        $this->validateSchedule($merged, $id);
-        
-        $data['Updated_At'] = now()->toDateTimeString();
-        $result = $this->repository->update($id, $data);
-        $this->repository->clearCache();
-        $this->assertReadBackMatches($id, $data);
-        return $result;
+            unset($data['Schedule_ID'], $data['id']);
+            $data = $this->normalizePayload($data);
+            $merged = array_merge(AcademicSheetMapper::normalizeScheduleRow((array) $existing), $data);
+            $this->validateSchedule($merged, $id);
+
+            $data['Updated_At'] = now()->toDateTimeString();
+            $result = $this->repository->update($id, $data);
+            $this->repository->clearCache();
+            $this->assertReadBackMatches($id, $data);
+
+            return $result;
+        });
     }
-    
+
     public function delete($id)
     {
         $result = $this->repository->delete($id);
         $this->repository->clearCache();
+
         return $result;
     }
 
     private function normalizePayload(array $data): array
     {
-        if (!array_key_exists('Academic_Year_ID', $data) || trim((string) $data['Academic_Year_ID']) === '') {
-            $data['Academic_Year_ID'] = AcademicYearResolver::currentId();
-        }
-
         foreach (['Class_ID', 'Subject_ID', 'Teacher_ID', 'Academic_Year_ID', 'Day_Of_Week', 'Room', 'Is_Active'] as $field) {
             if (array_key_exists($field, $data)) {
                 $data[$field] = trim((string) $data[$field]);
@@ -130,16 +137,39 @@ class ScheduleService
         return $data;
     }
 
+    private function runTransaction(\Closure $callback): mixed
+    {
+        if (method_exists($this->repository, 'transaction')) {
+            return $this->repository->transaction($callback);
+        }
+
+        return $callback();
+    }
+
+    private function canonicalDay(mixed $day): string
+    {
+        return match (strtolower(trim((string) $day))) {
+            'monday', 'senin' => 'monday',
+            'tuesday', 'selasa' => 'tuesday',
+            'wednesday', 'rabu' => 'wednesday',
+            'thursday', 'kamis' => 'thursday',
+            'friday', 'jumat' => 'friday',
+            'saturday', 'sabtu' => 'saturday',
+            'sunday', 'minggu' => 'sunday',
+            default => strtolower(trim((string) $day)),
+        };
+    }
+
     private function assertReadBackMatches(string $id, array $expected): void
     {
         $fresh = $this->repository->findById($id);
-        if (!$fresh) {
+        if (! $fresh) {
             throw new \RuntimeException("Jadwal '{$id}' tidak dapat diverifikasi setelah disimpan.");
         }
 
         $fresh = AcademicSheetMapper::normalizeScheduleRow((array) $fresh);
         foreach (['Class_ID', 'Subject_ID', 'Teacher_ID', 'Academic_Year_ID', 'Day_Of_Week', 'Start_Time', 'End_Time', 'Room', 'Is_Active'] as $field) {
-            if (!array_key_exists($field, $expected)) {
+            if (! array_key_exists($field, $expected)) {
                 continue;
             }
 

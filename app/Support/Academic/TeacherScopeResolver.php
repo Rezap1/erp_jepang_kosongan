@@ -18,8 +18,7 @@ class TeacherScopeResolver
         private StudentRepositoryInterface $studentRepository,
         private ClassEnrollmentRepositoryInterface $classEnrollmentRepository,
         private AssessmentRepositoryInterface $assessmentRepository
-    ) {
-    }
+    ) {}
 
     public function resolveForUser($user): array
     {
@@ -41,7 +40,7 @@ class TeacherScopeResolver
             return $this->emptyScope();
         }
 
-        $scopeKey = 'teacher_scope_' . hash('sha256', $teacherId);
+        $scopeKey = 'teacher_scope_'.hash('sha256', $teacherId);
         if (function_exists('request') && request()->attributes->has($scopeKey)) {
             return request()->attributes->get($scopeKey);
         }
@@ -49,39 +48,51 @@ class TeacherScopeResolver
         $allSchedules = collect($this->scheduleRepository->fetchAll());
         $teacherSchedules = $allSchedules
             ->filter(fn ($row) => trim((string) ($row['Teacher_ID'] ?? '')) === $teacherId)
-            ->filter(fn ($row) => !$this->isInactive($row))
+            ->filter(fn ($row) => ! $this->isInactive($row))
             ->values();
 
         $scheduleIds = $teacherSchedules->pluck('Schedule_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all();
-        $classIds = $teacherSchedules->pluck('Class_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all();
+        $teachingClassIds = $teacherSchedules->pluck('Class_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all();
         $subjectIds = $teacherSchedules->pluck('Subject_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all();
 
-        $classes = collect($this->classRepository->fetchAll())
-            ->filter(fn ($row) => in_array(trim((string) ($row['Class_ID'] ?? '')), $classIds, true))
-            ->filter(fn ($row) => !$this->isInactive($row))
+        $allClasses = collect($this->classRepository->fetchAll())
+            ->filter(fn ($row) => ! $this->isInactive($row))
             ->values();
-        $classIds = $classes->pluck('Class_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all();
+        $classIds = TeacherClassAssignmentResolver::managedClassIds($allClasses, $teacherSchedules, $teacherId);
+        $classes = $allClasses
+            ->filter(fn ($row) => in_array(trim((string) ($row['Class_ID'] ?? '')), $classIds, true))
+            ->values();
+        $rosterClassIds = array_values(array_unique(array_merge($classIds, $teachingClassIds)));
 
         $students = collect($this->studentRepository->fetchAll())
-            ->filter(fn ($row) => !$this->isInactive($row))
+            ->filter(fn ($row) => ! $this->isInactive($row))
             ->values();
         $enrollments = collect($this->classEnrollmentRepository->fetchAll())
-            ->filter(fn ($row) => !$this->isInactive($row))
+            ->filter(fn ($row) => ! $this->isInactive($row))
             ->values();
 
         $studentsByClass = [];
-        foreach ($enrollments as $enrollment) {
-            $classId = trim((string) ($enrollment['Class_ID'] ?? ''));
-            $studentId = trim((string) ($enrollment['Student_ID'] ?? ''));
-            if ($classId !== '' && $studentId !== '' && in_array($classId, $classIds, true)) {
+        $studentsWithCurrentClass = [];
+        foreach ($students as $student) {
+            $classId = trim((string) ($student['Class_ID'] ?? ''));
+            $studentId = trim((string) ($student['Student_ID'] ?? ''));
+            if ($classId !== '' && $studentId !== '') {
+                $studentsWithCurrentClass[$studentId] = true;
+            }
+            if ($classId !== '' && $studentId !== '' && in_array($classId, $rosterClassIds, true)) {
                 $studentsByClass[$classId][] = $studentId;
             }
         }
 
-        foreach ($students as $student) {
-            $classId = trim((string) ($student['Class_ID'] ?? ''));
-            $studentId = trim((string) ($student['Student_ID'] ?? ''));
-            if ($classId !== '' && $studentId !== '' && in_array($classId, $classIds, true)) {
+        // MASTER_STUDENT.Class_ID is the current placement source. Enrollment
+        // rows are a legacy/history fallback only when the student has no
+        // current class, preventing a moved student from appearing twice.
+        foreach ($enrollments as $enrollment) {
+            $classId = trim((string) ($enrollment['Class_ID'] ?? ''));
+            $studentId = trim((string) ($enrollment['Student_ID'] ?? ''));
+            if ($classId !== '' && $studentId !== ''
+                && ! isset($studentsWithCurrentClass[$studentId])
+                && in_array($classId, $rosterClassIds, true)) {
                 $studentsByClass[$classId][] = $studentId;
             }
         }
@@ -102,7 +113,7 @@ class TeacherScopeResolver
 
         $assessments = collect($this->assessmentRepository->getAll());
         $assessmentIds = $assessments
-            ->filter(function ($row) use ($teacherId, $classIds, $scheduleIds) {
+            ->filter(function ($row) use ($teacherId, $classIds, $teachingClassIds, $scheduleIds) {
                 $rowTeacher = trim((string) ($row['Teacher_ID'] ?? ''));
                 if ($rowTeacher !== '') {
                     return $rowTeacher === $teacherId;
@@ -111,7 +122,7 @@ class TeacherScopeResolver
                 $classId = trim((string) ($row['Class_ID'] ?? ''));
                 $scheduleId = trim((string) ($row['Schedule_ID'] ?? ''));
 
-                return ($classId !== '' && in_array($classId, $classIds, true))
+                return ($classId !== '' && in_array($classId, array_values(array_unique(array_merge($classIds, $teachingClassIds))), true))
                     || ($scheduleId !== '' && in_array($scheduleId, $scheduleIds, true));
             })
             ->pluck('Assessment_ID')
@@ -125,6 +136,8 @@ class TeacherScopeResolver
             'teacher_id' => $teacherId,
             'schedule_ids' => $scheduleIds,
             'class_ids' => $classIds,
+            'managed_class_ids' => $classIds,
+            'teaching_class_ids' => $teachingClassIds,
             'subject_ids' => $subjectIds,
             'student_ids' => $studentIds,
             'assessment_ids' => $assessmentIds,
@@ -168,6 +181,8 @@ class TeacherScopeResolver
             'teacher_id' => '',
             'schedule_ids' => [],
             'class_ids' => [],
+            'managed_class_ids' => [],
+            'teaching_class_ids' => [],
             'subject_ids' => [],
             'student_ids' => [],
             'assessment_ids' => [],

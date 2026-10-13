@@ -137,6 +137,14 @@
                         </div>
                     </div>
 
+                    <x-universal.select
+                        name="Gender"
+                        label="Jenis Kelamin"
+                        :required="true"
+                        :options="['Laki-laki' => 'Laki-laki', 'Perempuan' => 'Perempuan']"
+                        value="{{ old('Gender') }}"
+                    />
+
                     <x-universal.select 
                         name="Education" 
                         label="Pendidikan Terakhir" 

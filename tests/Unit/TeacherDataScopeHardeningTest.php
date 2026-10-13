@@ -9,25 +9,26 @@ use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
 use App\Support\Academic\TeacherScopeResolver;
+use App\Support\Reporting\HumanReadableResolver;
 use Tests\TestCase;
 
 class TeacherDataScopeHardeningTest extends TestCase
 {
-    public function test_teacher_scope_resolver_uses_only_active_teaching_schedule_classes(): void
+    public function test_teacher_scope_uses_homeroom_assignment_with_legacy_schedule_fallback(): void
     {
         $scope = $this->resolver()->resolveForTeacherId('TCH-A');
 
         $this->assertSame(['SCH-A-MON', 'SCH-B-TUE'], $scope['schedule_ids']);
-        $this->assertSame(['CLS-A', 'CLS-B'], $scope['class_ids']);
-        $this->assertEqualsCanonicalizing(['STU-A', 'STU-B', 'STU-B2'], $scope['student_ids']);
+        $this->assertSame(['CLS-A', 'CLS-B', 'CLS-HOMEROOM-ONLY'], $scope['class_ids']);
+        $this->assertSame(['CLS-A', 'CLS-B'], $scope['teaching_class_ids']);
+        $this->assertEqualsCanonicalizing(['STU-A', 'STU-B', 'STU-B2', 'STU-H'], $scope['student_ids']);
         $this->assertSame(['STU-A'], $scope['schedule_student_ids']['SCH-A-MON']);
         $this->assertEqualsCanonicalizing(['STU-B', 'STU-B2'], $scope['schedule_student_ids']['SCH-B-TUE']);
 
         $this->assertNotContains('CLS-C', $scope['class_ids']);
-        $this->assertNotContains('CLS-HOMEROOM-ONLY', $scope['class_ids']);
         $this->assertNotContains('STU-C', $scope['student_ids']);
-        $this->assertNotContains('STU-H', $scope['student_ids']);
         $this->assertNotContains('STU-INACTIVE', $scope['student_ids']);
+        $this->assertNotContains('STU-H', $scope['students_by_class']['CLS-B']);
     }
 
     public function test_teacher_assessment_schedule_labels_are_unique_and_human_readable(): void
@@ -40,7 +41,7 @@ class TeacherDataScopeHardeningTest extends TestCase
             $scheduleId = $schedule['Schedule_ID'];
 
             return [
-                $scheduleId => \App\Support\Reporting\HumanReadableResolver::scheduleLabel(
+                $scheduleId => HumanReadableResolver::scheduleLabel(
                     $scheduleId,
                     collect([$scheduleId => $schedule]),
                     $classesById,
@@ -159,6 +160,7 @@ class TeacherDataScopeHardeningTest extends TestCase
         return [
             ['Enrollment_ID' => 'ENR-B2', 'Student_ID' => 'STU-B2', 'Class_ID' => 'CLS-B', 'Is_Active' => 'TRUE'],
             ['Enrollment_ID' => 'ENR-C', 'Student_ID' => 'STU-C', 'Class_ID' => 'CLS-C', 'Is_Active' => 'TRUE'],
+            ['Enrollment_ID' => 'ENR-H-OLD', 'Student_ID' => 'STU-H', 'Class_ID' => 'CLS-B', 'Is_Active' => 'TRUE'],
             ['Enrollment_ID' => 'ENR-INACTIVE', 'Student_ID' => 'STU-INACTIVE', 'Class_ID' => 'CLS-A', 'Is_Active' => 'FALSE'],
         ];
     }

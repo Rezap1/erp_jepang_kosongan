@@ -1,31 +1,43 @@
 <?php
+
 namespace App\Services\Dashboard;
 
-use App\Helpers\SheetValue;
-use App\Services\Academic\ScheduleService;
-use App\Services\Academic\AttendanceService as AcademicAttendanceService;
-use App\Services\Academic\AssessmentService;
-use App\Services\Academic\ScoreService;
-use App\Services\Core\TeacherService;
-use App\Services\Core\StudentService;
-use App\Services\Core\ClassService;
-use App\Services\Core\ActivityLogService;
-use App\Services\Core\NotificationService;
 use App\Helpers\AttendanceStatusHelper;
-use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
+use App\Helpers\SheetValue;
+use App\Interfaces\GoogleSheets\EmployeeRepositoryInterface;
+use App\Interfaces\GoogleSheets\PayrollRepositoryInterface;
+use App\Services\Academic\AssessmentService;
+use App\Services\Academic\AttendanceService as AcademicAttendanceService;
+use App\Services\Academic\ScheduleService;
+use App\Services\Academic\ScoreService;
+use App\Services\Core\ActivityLogService;
+use App\Services\Core\ClassService;
+use App\Services\Core\NotificationService;
+use App\Services\Core\StudentService;
+use App\Services\Core\TeacherService;
+use App\Support\Academic\TeacherClassAssignmentResolver;
 use App\Support\Presentation\IndonesianPresentation;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class TeacherDashboardService
 {
     protected $scheduleService;
+
     protected $attendanceService;
+
     protected $assessmentService;
+
     protected $scoreService;
+
     protected $teacherService;
+
     protected $studentService;
+
     protected $classService;
+
     protected $activityLogService;
+
     protected $notificationService;
 
     public function __construct(
@@ -53,7 +65,7 @@ class TeacherDashboardService
     public function getDashboardData()
     {
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             abort(403, 'Profil pengajar tidak ditemukan.');
         }
 
@@ -62,7 +74,7 @@ class TeacherDashboardService
         // === Resolve Teacher ID (fetch once) ===
         $allTeachers = collect($this->teacherService->getAllTeachers());
         $teacher = $allTeachers->firstWhere('User_ID', $userId);
-        if (!$teacher || empty($teacher['Teacher_ID'])) {
+        if (! $teacher || empty($teacher['Teacher_ID'])) {
             abort(403, 'Profil pengajar tidak ditemukan.');
         }
 
@@ -93,23 +105,20 @@ class TeacherDashboardService
 
         $todayClasses = $todayClassesRaw->map(function ($s) {
             return [
-                'time'    => ($s['Start_Time'] ?? '') . ' - ' . ($s['End_Time'] ?? ''),
+                'time' => ($s['Start_Time'] ?? '').' - '.($s['End_Time'] ?? ''),
                 'subject' => $s['Subject_ID'] ?? 'Subject',
-                'room'    => $s['Room'] ?? 'Room',
-                'class'   => $s['Class_ID'] ?? '',
+                'room' => $s['Room'] ?? 'Room',
+                'class' => $s['Class_ID'] ?? '',
             ];
         })->toArray();
 
         // === My Students (from active teaching schedules only) ===
-        $scheduleClassIds = $mySchedules->pluck('Class_ID')->filter()->unique();
-        $activeClassIds = collect($this->classService->getAllClasses())
-            ->filter(fn ($class) => strtoupper(trim((string) ($class['Is_Active'] ?? 'TRUE'))) !== 'FALSE')
-            ->pluck('Class_ID')
-            ->filter()
-            ->unique();
-        $myClassIds = $activeClassIds->isNotEmpty()
-            ? $scheduleClassIds->intersect($activeClassIds)->values()
-            : $scheduleClassIds->values();
+        $allClasses = collect($this->classService->getAllClasses());
+        $myClassIds = collect(TeacherClassAssignmentResolver::managedClassIds(
+            $allClasses,
+            $mySchedules,
+            trim((string) $teacherId)
+        ));
         $myStudentCount = $allStudents->filter(function ($s) use ($myClassIds) {
             return $myClassIds->contains($s['Class_ID'] ?? '');
         })->count();
@@ -132,6 +141,7 @@ class TeacherDashboardService
                 && $todayScheduleIds->contains($a['Schedule_ID'] ?? '');
         })->sortBy(function ($attendance) {
             $type = strtoupper(trim((string) ($attendance['Attendance_Type'] ?? '')));
+
             return in_array($type, ['CLASS_QR', 'CLASS_MANUAL'], true) ? 0 : 1;
         })->unique(function ($attendance) use ($mySchedulesById) {
             $type = strtoupper(trim((string) ($attendance['Attendance_Type'] ?? '')));
@@ -142,7 +152,7 @@ class TeacherDashboardService
                 $classId = $schedule['Class_ID'] ?? '';
             }
 
-            return ($attendance['Student_ID'] ?? '') . '|' . $classId;
+            return ($attendance['Student_ID'] ?? '').'|'.$classId;
         })->values();
         $attendanceStats = [
             'hadir' => $todayAttendances->filter(fn ($a) => in_array(AttendanceStatusHelper::normalize($a['Status'] ?? ''), ['PRESENT', 'LATE'], true))->count(),
@@ -159,6 +169,7 @@ class TeacherDashboardService
             }
 
             $schedule = $mySchedulesById->get($attendance['Schedule_ID'] ?? '');
+
             return $schedule['Class_ID'] ?? '';
         })->filter()->unique();
         $attendancePending = $todayClassIds->diff($attendedClassIds)->count();
@@ -176,8 +187,8 @@ class TeacherDashboardService
         // Gaji Bulan Ini
         $mySalaryStatus = 'Belum Diterima';
         try {
-            $employeeRepo = app(\App\Interfaces\GoogleSheets\EmployeeRepositoryInterface::class);
-            $payrollRepo = app(\App\Interfaces\GoogleSheets\PayrollRepositoryInterface::class);
+            $employeeRepo = app(EmployeeRepositoryInterface::class);
+            $payrollRepo = app(PayrollRepositoryInterface::class);
             $employee = collect($employeeRepo->fetchAll())->firstWhere('User_ID', $userId);
             if ($employee) {
                 $payrolls = collect($payrollRepo->getAll())
@@ -187,24 +198,25 @@ class TeacherDashboardService
 
                 $latestPayroll = $payrolls->first();
                 if ($latestPayroll) {
-                    $monthCreated = \Carbon\Carbon::parse($latestPayroll['Created_At'])->format('Y-m');
-                    $currentMonth = \Carbon\Carbon::now()->format('Y-m');
-                    if ($monthCreated === $currentMonth || \Carbon\Carbon::parse($latestPayroll['Paid_Date'] ?? now())->format('Y-m') === $currentMonth) {
+                    $monthCreated = Carbon::parse($latestPayroll['Created_At'])->format('Y-m');
+                    $currentMonth = Carbon::now()->format('Y-m');
+                    if ($monthCreated === $currentMonth || Carbon::parse($latestPayroll['Paid_Date'] ?? now())->format('Y-m') === $currentMonth) {
                         $mySalaryStatus = 'Diterima';
                     }
                 }
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+        }
 
         // === KPI ===
         $kpi = [
-            'today_classes'      => $todayClassesRaw->count(),
-            'my_students'        => $myStudentCount,
-            'attendance_today'    => $attendanceToday,
+            'today_classes' => $todayClassesRaw->count(),
+            'my_students' => $myStudentCount,
+            'attendance_today' => $attendanceToday,
             'attendance_pending' => $attendancePending,
             'assessment_pending' => $assessmentPending,
-            'score_pending'      => $scorePending,
-            'salary_status'      => $mySalaryStatus,
+            'score_pending' => $scorePending,
+            'salary_status' => $mySalaryStatus,
         ];
 
         // === Reminders (data riil) ===
@@ -212,25 +224,25 @@ class TeacherDashboardService
 
         foreach ($todayClasses as $cls) {
             $reminders[] = [
-                'title'       => 'Class Today: ' . ($cls['subject'] ?? 'Unknown'),
-                'description' => ($cls['time'] ?? '') . ' in ' . ($cls['room'] ?? ''),
-                'action_url'  => route('teacher.workspace.schedule'),
+                'title' => 'Class Today: '.($cls['subject'] ?? 'Unknown'),
+                'description' => ($cls['time'] ?? '').' in '.($cls['room'] ?? ''),
+                'action_url' => route('teacher.workspace.schedule'),
             ];
         }
 
         if ($attendancePending > 0) {
             $reminders[] = [
-                'title'       => 'Attendance Pending',
-                'description' => $attendancePending . ' sesi absensi belum diisi hari ini.',
-                'action_url'  => route('teacher.workspace.attendances'),
+                'title' => 'Attendance Pending',
+                'description' => $attendancePending.' sesi absensi belum diisi hari ini.',
+                'action_url' => route('teacher.workspace.attendances'),
             ];
         }
 
         if ($assessmentPending > 0) {
             $reminders[] = [
-                'title'       => 'Assessment Pending',
-                'description' => $assessmentPending . ' assessment menunggu input nilai.',
-                'action_url'  => route('teacher.workspace.scores'),
+                'title' => 'Assessment Pending',
+                'description' => $assessmentPending.' assessment menunggu input nilai.',
+                'action_url' => route('teacher.workspace.scores'),
             ];
         }
 
@@ -238,7 +250,7 @@ class TeacherDashboardService
         $myClassIdsArray = $myClassIds->toArray();
         $myScheduleIds = $mySchedules->pluck('Schedule_ID')->toArray();
         $myAssessmentIdsArray = $myAssessmentIds->toArray();
-        $myScoreIds = $allScores->filter(function($s) use ($myAssessmentIdsArray) {
+        $myScoreIds = $allScores->filter(function ($s) use ($myAssessmentIdsArray) {
             return in_array($s['Assessment_ID'] ?? '', $myAssessmentIdsArray, true);
         })->pluck('Score_ID')->toArray();
 
@@ -284,6 +296,7 @@ class TeacherDashboardService
             'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu',
             'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu',
         ];
+
         return $dayMap[date('l')] ?? date('l');
     }
 
@@ -327,9 +340,12 @@ class TeacherDashboardService
         try {
             $allowedModules = ['SYSTEM', 'ACADEMIC', 'CLASS', 'SCHEDULE', 'SCORE', 'ASSESSMENT', 'ATTENDANCE', 'TEACHER'];
             $logs = collect($this->activityLogService->getAllLogs());
+
             return $logs->filter(function ($log) use ($userId, $relatedIds, $allowedModules) {
                 $isAllowedModule = in_array(strtoupper($log['Module'] ?? ''), $allowedModules);
-                if (!$isAllowedModule) return false;
+                if (! $isAllowedModule) {
+                    return false;
+                }
 
                 return ($log['User_ID'] ?? '') === $userId
                     || ($log['Reference_ID'] ?? '') === $userId
@@ -345,13 +361,14 @@ class TeacherDashboardService
                     } else {
                         $action = str_replace('_', ' ', $log['Action'] ?? '');
                         $refId = $log['Reference_ID'] ?? '';
-                        $desc = "Aktivitas " . ucwords(strtolower($action)) . ($refId ? " pada {$refId}" : '');
+                        $desc = 'Aktivitas '.ucwords(strtolower($action)).($refId ? " pada {$refId}" : '');
                     }
                 }
+
                 return [
-                    'title'       => $log['Action'] ?? 'Aktivitas',
-                    'description' => ($log['Module'] ?? '') . ' — ' . $desc,
-                    'time'        => isset($log['Created_At']) ? Carbon::parse($log['Created_At'])->diffForHumans() : 'Baru saja',
+                    'title' => $log['Action'] ?? 'Aktivitas',
+                    'description' => ($log['Module'] ?? '').' — '.$desc,
+                    'time' => isset($log['Created_At']) ? Carbon::parse($log['Created_At'])->diffForHumans() : 'Baru saja',
                 ];
             })->values()->toArray();
         } catch (\Exception $e) {

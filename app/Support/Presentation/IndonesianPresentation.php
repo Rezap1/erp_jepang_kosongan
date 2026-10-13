@@ -2,6 +2,7 @@
 
 namespace App\Support\Presentation;
 
+use App\Support\Academic\AssignmentStatus;
 use Carbon\Carbon;
 use DateTimeInterface;
 
@@ -222,7 +223,7 @@ final class IndonesianPresentation
 
     public static function assignmentStatus(mixed $value, string $fallback = '-'): string
     {
-        return \App\Support\Academic\AssignmentStatus::label($value, $fallback);
+        return AssignmentStatus::label($value, $fallback);
     }
 
     public static function boolean(mixed $value, string $fallback = '-'): string
@@ -241,6 +242,37 @@ final class IndonesianPresentation
             'false', 'no', 'n', '0', 'inactive' => 'Tidak',
             default => $raw,
         };
+    }
+
+    public static function gender(mixed $value, string $fallback = 'Belum diisi'): string
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return $fallback;
+        }
+
+        return match (self::key($raw)) {
+            'l', 'male', 'pria', 'laki laki' => 'Laki-laki',
+            'p', 'female', 'wanita', 'perempuan' => 'Perempuan',
+            default => $raw,
+        };
+    }
+
+    public static function age(mixed $birthDate): ?int
+    {
+        $raw = trim((string) $birthDate);
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            $date = Carbon::parse(str_replace('/', '-', $raw), 'Asia/Jakarta')->startOfDay();
+            $today = Carbon::now('Asia/Jakarta')->startOfDay();
+
+            return $date->isFuture() ? null : $date->age;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public static function enum(mixed $value, string $fallback = '-'): string
@@ -302,14 +334,14 @@ final class IndonesianPresentation
 
         $normalized = str_replace('â€”', '—', $raw);
         $parts = preg_split('/\s*—\s*/u', $normalized, 2);
-        if (!is_array($parts) || count($parts) < 2) {
+        if (! is_array($parts) || count($parts) < 2) {
             $parts = preg_split('/\s*-\s*/u', $normalized, 2) ?: [$normalized];
         }
 
         $module = trim((string) ($parts[0] ?? ''));
         $detail = trim((string) ($parts[1] ?? ''));
 
-        return self::activityModule($module) . ' — ' . self::activityDetail($detail);
+        return self::activityModule($module).' — '.self::activityDetail($detail);
     }
 
     private static function activityDetail(string $detail): string
@@ -326,12 +358,14 @@ final class IndonesianPresentation
 
         if (preg_match('/^Aktivitas\s+([A-Za-z_]+)\s+pada\s+(.+)$/u', $detail, $matches) === 1) {
             $action = self::activityAction($matches[1]);
-            return $action . ' pada ' . trim($matches[2]);
+
+            return $action.' pada '.trim($matches[2]);
         }
 
         if (preg_match('/^([A-Za-z_]+)\s+pada\s+(.+)$/u', $detail, $matches) === 1) {
             $action = self::activityAction($matches[1]);
-            return $action . ' pada ' . trim($matches[2]);
+
+            return $action.' pada '.trim($matches[2]);
         }
 
         return $detail;
@@ -339,7 +373,7 @@ final class IndonesianPresentation
 
     public static function date(mixed $value, string $format = 'j F Y', string $fallback = '-'): string
     {
-        if ($value === null || (!$value instanceof DateTimeInterface && trim((string) $value) === '')) {
+        if ($value === null || (! $value instanceof DateTimeInterface && trim((string) $value) === '')) {
             return $fallback;
         }
 
@@ -359,6 +393,7 @@ final class IndonesianPresentation
                 // Keep presentation deterministic even when PHP intl/locale
                 // data is unavailable on the host.
                 $english = $date->format($format);
+
                 return strtr($english, [
                     'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu',
                     'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu', 'Sunday' => 'Minggu',

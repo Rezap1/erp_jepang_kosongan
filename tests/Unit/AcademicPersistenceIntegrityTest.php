@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Exceptions\ScheduleConflictException;
 use App\Http\Requests\StoreScheduleRequest;
 use App\Http\Requests\UpdateScheduleRequest;
 use App\Http\Requests\UpdateSubjectRequest;
@@ -15,15 +16,15 @@ use App\Services\Academic\ScheduleService;
 use App\Services\Academic\SubjectService;
 use App\Services\Core\EnterpriseEventService;
 use App\Services\Core\ProgramService;
-use App\Support\Academic\AcademicYearResolver;
 use App\Support\Academic\AcademicSheetMapper;
-use Illuminate\Support\Carbon;
+use App\Support\Academic\AcademicYearResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Routing\Route;
-use Illuminate\Support\ViewErrorBag;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ViewErrorBag;
 use Mockery;
 use Tests\TestCase;
 
@@ -67,7 +68,7 @@ class AcademicPersistenceIntegrityTest extends TestCase
         $this->assertSame('Genap', $genap['Semester']);
     }
 
-    public function test_schedule_create_auto_fills_current_academic_year_when_master_rows_are_empty(): void
+    public function test_schedule_create_rejects_missing_academic_year_master_reference(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-09-05 01:13:00', config('app.timezone')));
         $this->bindScheduleReferenceRules(academicYear: null);
@@ -85,8 +86,8 @@ class AcademicPersistenceIntegrityTest extends TestCase
 
         $validator = $this->preparedValidator($request);
 
-        $this->assertTrue($validator->passes(), var_export($validator->errors()->toArray(), true));
-        $this->assertSame('ACY-2026-2027-GANJIL', $validator->validated()['Academic_Year_ID']);
+        $this->assertFalse($validator->passes());
+        $this->assertSame('Tahun ajaran wajib dipilih.', $validator->errors()->first('Academic_Year_ID'));
     }
 
     public function test_schedule_update_unchanged_values_preserves_references_room_day_and_times(): void
@@ -129,7 +130,7 @@ class AcademicPersistenceIntegrityTest extends TestCase
 
     public function test_schedule_room_create_and_update_are_verified_on_fresh_read_back(): void
     {
-        $repo = new H839ScheduleMemoryRepository();
+        $repo = new H839ScheduleMemoryRepository;
         $service = new ScheduleService($repo);
 
         $service->create([
@@ -157,6 +158,68 @@ class AcademicPersistenceIntegrityTest extends TestCase
         ]);
 
         $this->assertSame('Ruangan 2', $repo->findById('SCH000001')['Room']);
+    }
+
+    public function test_schedule_update_rolls_back_when_read_back_verification_fails(): void
+    {
+        $repo = new H839ScheduleMemoryRepository([[
+            'Schedule_ID' => 'SCH-ROLLBACK',
+            'Class_ID' => 'CLS-001',
+            'Subject_ID' => 'SUB-001',
+            'Teacher_ID' => 'TCH-001',
+            'Academic_Year_ID' => 'AY-001',
+            'Day_Of_Week' => 'Monday',
+            'Start_Time' => '09:00',
+            'End_Time' => '10:00',
+            'Room' => 'Ruangan Lama',
+            'Is_Active' => 'TRUE',
+        ]]);
+        $repo->corruptReadBackAfterUpdate = true;
+
+        try {
+            (new ScheduleService($repo))->update('SCH-ROLLBACK', [
+                'Class_ID' => 'CLS-001',
+                'Subject_ID' => 'SUB-001',
+                'Teacher_ID' => 'TCH-001',
+                'Academic_Year_ID' => 'AY-001',
+                'Day_Of_Week' => 'Monday',
+                'Start_Time' => '09:00',
+                'End_Time' => '10:00',
+                'Room' => 'Ruangan Baru',
+            ]);
+            $this->fail('Verifikasi read-back seharusnya gagal.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('gagal diverifikasi', $e->getMessage());
+        }
+
+        $this->assertSame('Ruangan Lama', $repo->rows[0]['Room']);
+    }
+
+    public function test_schedule_conflict_normalizes_indonesian_and_english_day_names(): void
+    {
+        $repo = new H839ScheduleMemoryRepository([[
+            'Schedule_ID' => 'SCH-EXISTING',
+            'Class_ID' => 'CLS-001',
+            'Subject_ID' => 'SUB-001',
+            'Teacher_ID' => 'TCH-001',
+            'Academic_Year_ID' => 'AY-001',
+            'Day_Of_Week' => 'Senin',
+            'Start_Time' => '09:00',
+            'End_Time' => '10:00',
+            'Is_Active' => 'TRUE',
+        ]]);
+
+        $this->expectException(ScheduleConflictException::class);
+        $this->expectExceptionMessage('Jadwal pengajar bentrok');
+
+        (new ScheduleService($repo))->validateSchedule([
+            'Class_ID' => 'CLS-002',
+            'Teacher_ID' => 'TCH-001',
+            'Academic_Year_ID' => 'AY-001',
+            'Day_Of_Week' => 'Monday',
+            'Start_Time' => '09:30',
+            'End_Time' => '10:30',
+        ]);
     }
 
     public function test_schedule_update_ignores_forged_primary_id(): void
@@ -362,7 +425,7 @@ class AcademicPersistenceIntegrityTest extends TestCase
 
     public function test_display_renders_persisted_room_sks_duration_and_preselected_academic_year(): void
     {
-        View::share('errors', new ViewErrorBag());
+        View::share('errors', new ViewErrorBag);
 
         $scheduleHtml = view('academic.schedules.index', [
             'schedules' => collect([[
@@ -460,11 +523,11 @@ class AcademicPersistenceIntegrityTest extends TestCase
 
     private function subjectService(H839SubjectMemoryRepository $repo): SubjectService
     {
-        $user = new User();
+        $user = new User;
         $user->User_ID = 'USR-H839';
         Auth::login($user);
 
-        $scheduleRepo = new H839ScheduleMemoryRepository();
+        $scheduleRepo = new H839ScheduleMemoryRepository;
         $events = Mockery::mock(EnterpriseEventService::class);
         $events->shouldReceive('dispatch')->zeroOrMoreTimes()->andReturn(true);
 
@@ -491,11 +554,11 @@ class AcademicPersistenceIntegrityTest extends TestCase
     }
 
     /**
-     * @param class-string<FormRequest> $requestClass
+     * @param  class-string<FormRequest>  $requestClass
      */
     private function makeUpdateRequest(string $requestClass, array $payload, string $id): FormRequest
     {
-        $request = $requestClass::create('/test/' . $id, 'PUT', $payload);
+        $request = $requestClass::create('/test/'.$id, 'PUT', $payload);
         $request->setContainer($this->app);
 
         $route = new Route(['PUT'], '/test/{id}', []);
@@ -507,7 +570,7 @@ class AcademicPersistenceIntegrityTest extends TestCase
     }
 
     /**
-     * @param class-string<FormRequest> $requestClass
+     * @param  class-string<FormRequest>  $requestClass
      */
     private function makeRequest(string $requestClass, array $payload, string $method): FormRequest
     {
@@ -536,6 +599,10 @@ final class H839ScheduleMemoryRepository implements ScheduleRepositoryInterface
 {
     public array $rows;
 
+    public bool $corruptReadBackAfterUpdate = false;
+
+    private int $updateCount = 0;
+
     public function __construct(array $rows = [])
     {
         $this->rows = array_values($rows);
@@ -548,12 +615,17 @@ final class H839ScheduleMemoryRepository implements ScheduleRepositoryInterface
 
     public function findById(string $id)
     {
-        return $this->fetchAll()->firstWhere('Schedule_ID', $id);
+        $row = $this->fetchAll()->firstWhere('Schedule_ID', $id);
+        if ($row && $this->corruptReadBackAfterUpdate && $this->updateCount > 0) {
+            $row['Room'] = 'CORRUPTED';
+        }
+
+        return $row;
     }
 
     public function generateNewId(string $prefix, int $padding = 6): string
     {
-        return $prefix . str_pad((string) (count($this->rows) + 1), $padding, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) (count($this->rows) + 1), $padding, '0', STR_PAD_LEFT);
     }
 
     public function create(array $data)
@@ -569,6 +641,7 @@ final class H839ScheduleMemoryRepository implements ScheduleRepositoryInterface
             if (($row['Schedule_ID'] ?? '') === $id) {
                 unset($data['Schedule_ID'], $data['id']);
                 $this->rows[$index] = AcademicSheetMapper::normalizeScheduleRow(array_merge($row, $data));
+                $this->updateCount++;
 
                 return true;
             }
@@ -582,8 +655,25 @@ final class H839ScheduleMemoryRepository implements ScheduleRepositoryInterface
         return $this->update($id, ['Is_Active' => 'FALSE']);
     }
 
-    public function clearCache(): void
+    public function clearCache(): void {}
+
+    public function lockById(string $id)
     {
+        return $this->findById($id);
+    }
+
+    public function transaction(\Closure $callback)
+    {
+        $snapshot = $this->rows;
+        $updateCount = $this->updateCount;
+
+        try {
+            return $callback();
+        } catch (\Throwable $e) {
+            $this->rows = $snapshot;
+            $this->updateCount = $updateCount;
+            throw $e;
+        }
     }
 }
 
@@ -608,7 +698,7 @@ final class H839SubjectMemoryRepository implements SubjectRepositoryInterface
 
     public function generateNewId(string $prefix, int $padding = 6): string
     {
-        return $prefix . str_pad((string) (count($this->rows) + 1), $padding, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) (count($this->rows) + 1), $padding, '0', STR_PAD_LEFT);
     }
 
     public function create(array $data)
@@ -637,7 +727,5 @@ final class H839SubjectMemoryRepository implements SubjectRepositoryInterface
         return $this->update($id, ['Is_Active' => 'FALSE']);
     }
 
-    public function clearCache(): void
-    {
-    }
+    public function clearCache(): void {}
 }

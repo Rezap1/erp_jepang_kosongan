@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Core\StudentService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateStudentRequest extends FormRequest
@@ -19,30 +20,31 @@ class UpdateStudentRequest extends FormRequest
                 'string',
                 'max:50',
                 function ($attribute, $value, $fail) {
-                    $studentService = app(\App\Services\Core\StudentService::class);
+                    $studentService = app(StudentService::class);
                     $student = $studentService->getAllStudents()->firstWhere('Student_Number', $value);
                     if ($student && $student['Student_ID'] !== $this->route('id')) {
                         $fail('Nomor Induk Siswa sudah digunakan oleh siswa lain.');
                     }
-                }
+                },
             ],
             'Registration_Date' => 'required|date',
             'User_ID' => 'required|string',
             'Birth_Place' => 'nullable|string|max:100',
             'Birth_Date' => 'nullable|date',
+            'Gender' => 'required|in:Laki-laki,Perempuan',
             'National_ID' => [
                 'nullable',
                 'string',
                 'max:50',
                 function ($attribute, $value, $fail) {
-                    if (!empty($value)) {
-                        $studentService = app(\App\Services\Core\StudentService::class);
+                    if (! empty($value)) {
+                        $studentService = app(StudentService::class);
                         $student = $studentService->getAllStudents()->firstWhere('National_ID', $value);
                         if ($student && $student['Student_ID'] !== $this->route('id')) {
                             $fail('NIK (KTP) sudah terdaftar atas nama siswa lain.');
                         }
                     }
-                }
+                },
             ],
 
             'Address' => 'nullable|string',
@@ -54,12 +56,12 @@ class UpdateStudentRequest extends FormRequest
             'Graduation_Status' => 'nullable|string|max:50',
             'Is_Active' => 'nullable|in:TRUE,FALSE',
             'Notes' => 'nullable|string',
-            'Photo' => 'nullable|image|mimes:jpeg,png,jpg|max:' . config('upload.max_kb', 5120),
+            'Photo' => 'nullable|image|mimes:jpeg,png,jpg|max:'.config('upload.max_kb', 5120),
             'Phone_Number' => 'nullable|string|max:20',
-            'Email' => 'nullable|email|max:100'
+            'Email' => 'nullable|email|max:100',
         ];
     }
-    
+
     public function messages()
     {
         return [
@@ -69,7 +71,7 @@ class UpdateStudentRequest extends FormRequest
             'Photo.image' => 'File harus berupa gambar.',
             'Photo.max' => 'Ukuran gambar maksimal 5MB.',
             'Registration_Date.required' => 'Tanggal registrasi wajib diisi.',
-            'User_ID.required' => 'Akun Pengguna (User) wajib dipilih.'
+            'User_ID.required' => 'Akun Pengguna (User) wajib dipilih.', 'Gender.required' => 'Jenis kelamin wajib dipilih.', 'Gender.in' => 'Jenis kelamin yang dipilih tidak valid.',
         ];
     }
 }

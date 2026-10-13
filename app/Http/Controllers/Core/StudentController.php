@@ -285,9 +285,15 @@ class StudentController extends Controller
             $batch = $this->batchService->getBatchById($student['Batch_ID']);
             $class = $this->classService->getClassById($student['Class_ID']);
 
-            $student['Program_Name'] = $program ? $program['Program_Name'] : 'Tidak Ditemukan';
-            $student['Batch_Name'] = $batch ? $batch['Batch_Name'] : 'Tidak Ditemukan';
-            $student['Class_Name'] = $class ? $class['Class_Name'] : 'Tidak Ditemukan';
+            $student['Program_Name'] = $program
+                ? ($program['Program_Name'] ?? '')
+                : (empty($student['Program_ID']) ? '' : 'Data tidak ditemukan');
+            $student['Batch_Name'] = $batch
+                ? ($batch['Batch_Name'] ?? '')
+                : (empty($student['Batch_ID']) ? '' : 'Data tidak ditemukan');
+            $student['Class_Name'] = $class
+                ? ($class['Class_Name'] ?? '')
+                : (empty($student['Class_ID']) ? '' : 'Data tidak ditemukan');
 
             $alumni = null;
             try {

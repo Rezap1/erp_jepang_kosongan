@@ -35,6 +35,10 @@
             $ayOptions[$ayId] = trim(($ay['Name'] ?? 'Tahun ajaran') . ' - ' . ($ay['Semester'] ?? ''));
         }
     }
+    $selectedAcademicYearId = (string) old('Academic_Year_ID', $schedule['Academic_Year_ID'] ?? '');
+    if(!array_key_exists($selectedAcademicYearId, $ayOptions)) {
+        $selectedAcademicYearId = (string) ($schedule['Academic_Year_ID'] ?? array_key_first($ayOptions) ?? '');
+    }
     $startTimeValue = substr((string) old('Start_Time', $schedule['Start_Time'] ?? ''), 0, 5);
     $endTimeValue = substr((string) old('End_Time', $schedule['End_Time'] ?? ''), 0, 5);
 @endphp
@@ -120,11 +124,16 @@
                         @endif
                     </div>
 
-                    @if(count($ayOptions) === 1)
+                    @if(empty($ayOptions))
+                        <div>
+                            <x-universal.select name="Academic_Year_ID" label="Tahun Ajaran" :options="['' => 'Master tahun ajaran belum tersedia']" :disabled="true" :required="true" />
+                            <p class="mt-1.5 text-xs font-semibold text-rose-600">Hubungi administrator akademik untuk mengaktifkan master tahun ajaran sebelum memperbarui jadwal.</p>
+                        </div>
+                    @elseif(count($ayOptions) === 1)
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Tahun Ajaran <span class="text-red-500">*</span></label>
                             <input type="text" readonly value="{{ reset($ayOptions) }}" class="block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                            <input type="hidden" name="Academic_Year_ID" value="{{ old('Academic_Year_ID') ?: array_key_first($ayOptions) }}">
+                            <input type="hidden" name="Academic_Year_ID" value="{{ $selectedAcademicYearId }}">
                         </div>
                     @else
                         <div>
@@ -133,7 +142,7 @@
                                 label="Tahun Ajaran" 
                                 :options="$ayOptions" 
                                 :required="true" 
-                                value="{{ old('Academic_Year_ID') ?: ($schedule['Academic_Year_ID'] ?? array_key_first($ayOptions)) }}"
+                                value="{{ $selectedAcademicYearId }}"
                             />
                         </div>
                     @endif

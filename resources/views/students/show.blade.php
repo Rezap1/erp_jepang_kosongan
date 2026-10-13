@@ -5,7 +5,11 @@
 @php
     $isActive = ($student['Is_Active'] ?? 'TRUE') === 'TRUE';
     $statusColor = $isActive ? 'green' : 'red';
-    $statusText = $isActive ? 'Active' : 'Inactive';
+    $statusText = $isActive ? 'Aktif' : 'Tidak Aktif';
+    $emptyLabel = 'Belum diisi';
+    $display = static fn ($value) => trim((string) $value) !== '' ? $value : $emptyLabel;
+    $birthDate = $student['Birth_Date'] ?? null;
+    $age = \App\Support\Presentation\IndonesianPresentation::age($birthDate);
 @endphp
 
 <div class="max-w-6xl mx-auto">
@@ -50,48 +54,67 @@
         <x-slot:information>
             <div class="space-y-8">
                 <div>
-                    <h3 class="text-sm font-bold text-slate-700 mb-4 pb-2 border-b border-slate-100">Penempatan Akademik</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <h3 class="text-sm font-bold text-slate-700 mb-4 pb-2 border-b border-slate-100">Identitas & Penempatan Akademik</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <p class="text-xs font-bold text-slate-400 uppercase">Program</p>
-                            <p class="text-sm font-bold text-slate-800 mt-1">{{ $student['Program_Name'] }}</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase">ID Siswa / NIS</p>
+                            <p class="text-sm font-bold text-slate-800 mt-1 break-words">{{ $display($student['Student_Number'] ?? null) }}</p>
                         </div>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <p class="text-xs font-bold text-slate-400 uppercase">Kelas / Batch</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $student['Class_Name'] }} - {{ $student['Batch_Name'] }}</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase">Program</p>
+                            <p class="text-sm font-bold text-slate-800 mt-1">{{ $display($student['Program_Name'] ?? null) }}</p>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs font-bold text-slate-400 uppercase">Angkatan / Batch</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $display($student['Batch_Name'] ?? null) }}</p>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs font-bold text-slate-400 uppercase">Kelas</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $display($student['Class_Name'] ?? null) }}</p>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs font-bold text-slate-400 uppercase">Tanggal Pendaftaran</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::date($student['Registration_Date'] ?? null, 'j F Y', $emptyLabel) }}</p>
                         </div>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Status Pendidikan</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::status($student['Enrollment_Status'] ?? null) }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::status($student['Enrollment_Status'] ?? null, $emptyLabel) }}</p>
                         </div>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Status Kelulusan</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::status($student['Graduation_Status'] ?? 'Belum Lulus') }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::status($student['Graduation_Status'] ?? null, $emptyLabel) }}</p>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs font-bold text-slate-400 uppercase">Status Sistem</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $statusText }}</p>
                         </div>
                     </div>
                 </div>
 
                 <div>
                     <h3 class="text-sm font-bold text-slate-700 mb-4 pb-2 border-b border-slate-100">Data Kependudukan</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">NIK / No. KTP</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $student['National_ID'] ?: '-' }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1 break-words">{{ $display($student['National_ID'] ?? null) }}</p>
                         </div>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Jenis Kelamin</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $student['Gender'] }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::gender($student['Gender'] ?? null, $emptyLabel) }}</p>
                         </div>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Tempat, Tanggal Lahir</p>
                             <p class="text-sm font-medium text-slate-800 mt-1">
-                                {{ $student['Birth_Place'] ?: '-' }}, 
-                                {{ !empty($student['Birth_Date']) ? \App\Helpers\DateHelper::format($student['Birth_Date'], 'd F Y') : '-' }}
+                                {{ $display($student['Birth_Place'] ?? null) }}<br>
+                                {{ \App\Support\Presentation\IndonesianPresentation::date($birthDate, 'j F Y', $emptyLabel) }}
+                                @if($age !== null)
+                                    <span class="text-slate-500">({{ $age }} tahun)</span>
+                                @endif
                             </p>
                         </div>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Pendidikan Terakhir</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $student['Education'] }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $display($student['Education'] ?? null) }}</p>
                         </div>
                     </div>
                 </div>
@@ -101,15 +124,15 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Nomor Telepon</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $student['Phone_Number'] ?: '-' }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1 break-words">{{ $display($student['Phone_Number'] ?? null) }}</p>
                         </div>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Email</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $student['Email'] ?: '-' }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1 break-all">{{ $display($student['Email'] ?? null) }}</p>
                         </div>
                         <div class="sm:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <p class="text-xs font-bold text-slate-400 uppercase">Alamat Tinggal</p>
-                            <p class="text-sm font-medium text-slate-800 mt-1">{{ $student['Address'] ?: '-' }}</p>
+                            <p class="text-sm font-medium text-slate-800 mt-1 whitespace-pre-line">{{ $display($student['Address'] ?? null) }}</p>
                         </div>
                     </div>
                 </div>
@@ -127,21 +150,13 @@
             <div class="space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <p class="text-xs font-bold text-slate-400 uppercase">Record ID</p>
-                        <p class="text-sm font-mono font-bold text-slate-800 mt-1">{{ $student['Student_ID'] }}</p>
-                    </div>
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <p class="text-xs font-bold text-slate-400 uppercase">User ID (SSOT)</p>
-                        <p class="text-sm font-mono font-bold text-slate-800 mt-1">{{ $student['User_ID'] }}</p>
-                    </div>
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <p class="text-xs font-bold text-slate-400 uppercase">Data Dibuat</p>
-                        <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Helpers\DateHelper::format($student['Created_At'] ?? '', 'd M Y, H:i') }}</p>
+                        <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::date($student['Created_At'] ?? null, 'j M Y, H:i', $emptyLabel) }}</p>
                         <p class="text-xs text-slate-500 mt-1">Oleh: {{ \App\Helpers\UserResolverHelper::getName($student['Created_By'] ?? '') }}</p>
                     </div>
                     <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <p class="text-xs font-bold text-slate-400 uppercase">Terakhir Diperbarui</p>
-                        <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Helpers\DateHelper::format($student['Updated_At'] ?? '', 'd M Y, H:i') }}</p>
+                        <p class="text-sm font-medium text-slate-800 mt-1">{{ \App\Support\Presentation\IndonesianPresentation::date($student['Updated_At'] ?? null, 'j M Y, H:i', $emptyLabel) }}</p>
                         <p class="text-xs text-slate-500 mt-1">Oleh: {{ $student['Updated_By'] ?? 'Sistem' }}</p>
                     </div>
                 </div>
