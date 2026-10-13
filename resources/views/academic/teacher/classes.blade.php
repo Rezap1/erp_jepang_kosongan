@@ -5,7 +5,7 @@
 <div class="space-y-6">
     <x-page-header 
         title="Kelas Saya" 
-        description="Daftar kelas yang Anda ajar."
+        description="Daftar kelas wali aktif sesuai penugasan di Master Kelas."
         :breadcrumbs="['Dashboard' => route('dashboard'), 'Kelas Saya' => '#']"
     />
 
@@ -48,7 +48,7 @@
                 <x-empty-state 
                     icon="view-boards" 
                     title="Belum ada kelas yang ditugaskan" 
-                    message="Saat ini Anda belum ditugaskan untuk mengajar pada kelas manapun." 
+                    message="Saat ini belum ada kelas wali aktif yang ditugaskan kepada Anda di Master Kelas."
                 />
             </div>
         @endforelse

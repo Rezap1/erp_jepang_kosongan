@@ -10,7 +10,7 @@
 
     $kpiList = [
         ['title' => "Jadwal Hari Ini", 'value' => $kpi['today_classes'] ?? 0, 'icon' => 'calendar', 'color' => 'blue', 'link' => route('teacher.workspace.schedule')],
-        ['title' => "Kelas Hari Ini", 'value' => $kpi['today_classes'] ?? 0, 'icon' => 'view-boards', 'color' => 'indigo', 'link' => route('teacher.workspace.classes')],
+        ['title' => 'Kelas Wali', 'value' => $kpi['my_classes'] ?? 0, 'icon' => 'view-boards', 'color' => 'indigo', 'link' => route('teacher.workspace.classes')],
         ['title' => 'Total Siswa', 'value' => $kpi['my_students'] ?? 0, 'icon' => 'user-group', 'color' => 'emerald', 'link' => route('teacher.workspace.classes')],
         ['title' => 'Kehadiran Hari Ini', 'value' => $kpi['attendance_today'] ?? 0, 'icon' => 'clock', 'color' => 'amber', 'link' => route('teacher.workspace.attendances')],
         ['title' => 'Kelas Berikutnya', 'value' => $kpi['next_class'] ?? 'Tidak ada', 'icon' => 'play', 'color' => 'rose', 'link' => route('teacher.workspace.schedule')],
@@ -117,7 +117,18 @@
                     <a href="{{ route('teacher.workspace.classes') }}" class="shrink-0 text-xs sm:text-sm font-bold text-indigo-600 hover:text-indigo-700">Lihat Semua</a>
                 </div>
                 <div class="p-4 sm:p-6">
-                    <p class="text-sm text-slate-500 mb-4 font-medium">Anda memiliki akses penuh untuk melihat daftar siswa dan absensi pada kelas yang ditugaskan kepada Anda.</p>
+                    <p class="text-sm text-slate-500 mb-3 font-medium">Kelas wali aktif yang ditugaskan melalui Master Kelas.</p>
+                    @if(collect($homeroomClasses ?? [])->isNotEmpty())
+                        <div class="flex flex-wrap gap-2 mb-4" aria-label="Daftar kelas wali">
+                            @foreach($homeroomClasses as $homeroomClass)
+                                <span class="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+                                    {{ $homeroomClass['Class_Name'] ?? $homeroomClass['Class_Code'] ?? $homeroomClass['Class_ID'] }}
+                                </span>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm font-semibold text-slate-600 mb-4">Belum ada kelas wali aktif.</p>
+                    @endif
                     <a href="{{ route('teacher.workspace.classes') }}" class="inline-flex items-center justify-center w-full sm:w-auto px-5 py-2.5 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition">
                         Buka Kelas Saya
                     </a>

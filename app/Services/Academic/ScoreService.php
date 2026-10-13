@@ -5,7 +5,6 @@ namespace App\Services\Academic;
 use App\Exceptions\DuplicatePrimaryKeyException;
 use App\Helpers\GradeHelper;
 use App\Interfaces\GoogleSheets\AssessmentRepositoryInterface;
-use App\Interfaces\GoogleSheets\ClassEnrollmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScoreRepositoryInterface;
@@ -398,11 +397,16 @@ class ScoreService
 
     /**
      * H8.21: Get students within a teacher's scope.
-     * Teacher -> Schedule -> Class_ID -> ClassEnrollment -> Student
+     * Teacher -> Schedule -> Class_ID -> current MASTER_STUDENT.Class_ID
      */
     public function getStudentsInTeacherScope($teacherId): array
     {
-        return $this->getTeacherScoreScope((string) $teacherId)['students']->values()->toArray();
+        $scope = $this->getTeacherScoreScope((string) $teacherId);
+
+        return collect($scope['students'] ?? [])
+            ->whereIn('Student_ID', $scope['teaching_student_ids'] ?? [])
+            ->values()
+            ->toArray();
     }
 
     /**
@@ -427,7 +431,6 @@ class ScoreService
             app(ScheduleRepositoryInterface::class),
             app(ClassRepositoryInterface::class),
             $this->studentRepository,
-            app(ClassEnrollmentRepositoryInterface::class),
             $this->assessmentRepository
         );
 
@@ -445,7 +448,7 @@ class ScoreService
     {
         $scope ??= $this->getTeacherScoreScope($teacherId);
         $studentId = trim((string) ($score['Student_ID'] ?? ''));
-        if ($studentId === '' || ! in_array($studentId, $scope['student_ids'], true)) {
+        if ($studentId === '' || ! in_array($studentId, $scope['teaching_student_ids'] ?? [], true)) {
             return false;
         }
 

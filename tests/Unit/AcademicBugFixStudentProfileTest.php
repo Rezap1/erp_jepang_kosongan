@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
 use App\Interfaces\GoogleSheets\AssessmentRepositoryInterface;
-use App\Interfaces\GoogleSheets\ClassEnrollmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
@@ -125,6 +124,24 @@ class AcademicBugFixStudentProfileTest extends TestCase
     public function test_teacher_dashboard_student_count_follows_current_homeroom_assignments(): void
     {
         $this->actingAs(new GenericUser(['id' => 'USR-D', 'User_ID' => 'USR-D', 'Role' => 'TEACHER']));
+        $scopeResolver = Mockery::mock(TeacherScopeResolver::class);
+        $scopeResolver->shouldReceive('resolveForUser')->once()->andReturn([
+            'teacher_id' => 'TCH-D',
+            'identity' => [
+                'teacher_id' => 'TCH-D',
+                'employee_id' => '',
+                'teacher' => ['Teacher_ID' => 'TCH-D', 'Full_Name' => 'Guru D'],
+            ],
+            'schedules' => collect([
+                ['Schedule_ID' => 'SCH-STALE', 'Teacher_ID' => 'TCH-D', 'Class_ID' => 'CLS-A', 'Is_Active' => 'TRUE'],
+            ]),
+            'managed_class_ids' => ['CLS-B', 'CLS-C'],
+            'managed_student_ids' => ['STU-B', 'STU-C'],
+            'managed_classes' => collect([
+                ['Class_ID' => 'CLS-B', 'Class_Name' => 'Kelas B'],
+                ['Class_ID' => 'CLS-C', 'Class_Name' => 'Kelas C'],
+            ]),
+        ]);
         $service = new TeacherDashboardService(
             Mockery::mock(ScheduleService::class)->shouldReceive('getAll')->andReturn(collect([
                 ['Schedule_ID' => 'SCH-STALE', 'Teacher_ID' => 'TCH-D', 'Class_ID' => 'CLS-A', 'Is_Active' => 'TRUE'],
@@ -146,12 +163,14 @@ class AcademicBugFixStudentProfileTest extends TestCase
                 ['Class_ID' => 'CLS-C', 'Homeroom_Teacher_ID' => 'TCH-D', 'Is_Active' => 'TRUE'],
             ]))->getMock(),
             Mockery::mock(ActivityLogService::class)->shouldReceive('getAllLogs')->andReturn(collect())->getMock(),
-            Mockery::mock(NotificationService::class)->shouldReceive('UnreadCount')->andReturn(0)->getMock()
+            Mockery::mock(NotificationService::class)->shouldReceive('UnreadCount')->andReturn(0)->getMock(),
+            $scopeResolver
         );
 
         $dashboard = $service->getDashboardData();
 
         $this->assertSame(2, $dashboard['kpi']['my_students']);
+        $this->assertSame(2, $dashboard['kpi']['my_classes']);
     }
 
     public function test_schedule_update_route_remains_limited_to_academic_and_administrator(): void
@@ -239,11 +258,13 @@ class AcademicBugFixStudentProfileTest extends TestCase
 
     private function scopeResolver(array $classes, array $schedules): TeacherScopeResolver
     {
-        $teachers = $this->repositoryMock(TeacherRepositoryInterface::class, []);
+        $teachers = $this->repositoryMock(TeacherRepositoryInterface::class, [
+            ['Teacher_ID' => 'TCH-D', 'User_ID' => 'USR-D', 'Is_Active' => 'TRUE'],
+            ['Teacher_ID' => 'TCH-H', 'User_ID' => 'USR-H', 'Is_Active' => 'TRUE'],
+        ]);
         $scheduleRepository = $this->repositoryMock(ScheduleRepositoryInterface::class, $schedules);
         $classRepository = $this->repositoryMock(ClassRepositoryInterface::class, $classes);
         $studentRepository = $this->repositoryMock(StudentRepositoryInterface::class, []);
-        $enrollmentRepository = $this->repositoryMock(ClassEnrollmentRepositoryInterface::class, []);
         $assessments = Mockery::mock(AssessmentRepositoryInterface::class);
         $assessments->shouldReceive('getAll')->zeroOrMoreTimes()->andReturn(collect());
 
@@ -252,7 +273,6 @@ class AcademicBugFixStudentProfileTest extends TestCase
             $scheduleRepository,
             $classRepository,
             $studentRepository,
-            $enrollmentRepository,
             $assessments
         );
     }

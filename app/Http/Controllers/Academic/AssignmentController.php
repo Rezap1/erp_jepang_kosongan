@@ -1,33 +1,42 @@
 <?php
+
 namespace App\Http\Controllers\Academic;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreAssignmentRequest;
+use App\Http\Requests\UpdateAssignmentRequest;
+use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
+use App\Repositories\GoogleSheets\ClassRepository;
+use App\Repositories\GoogleSheets\SubjectRepository;
+use App\Repositories\GoogleSheets\TeacherRepository;
 use App\Services\Core\AssignmentService;
-use App\Services\Core\ActivityLogService;
+use App\Services\Core\RoleService;
+use App\Support\Academic\AssignmentStatus;
 use App\Support\Academic\TeacherScopeResolver;
 use App\Support\Reporting\HumanReadableResolver;
+use App\Traits\Exportable;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AssignmentController extends Controller
 {
-    use \App\Traits\Exportable;
+    use Exportable;
 
     protected $exportDateField = 'Deadline';
 
-    protected function getExportConfig(\Illuminate\Http\Request $request)
+    protected function getExportConfig(Request $request)
     {
         $assignments = $this->assignmentService->getAll();
 
         $user = auth()->user();
         if ($user) {
             if ($this->isTeacherUser()) {
-                $teacherRepo = app(\App\Repositories\GoogleSheets\TeacherRepository::class);
-                $teacherData = collect($teacherRepo->fetchAll())->firstWhere('User_ID', $user->User_ID);
-                if ($teacherData) {
-                    $myClassIds = app(TeacherScopeResolver::class)
-                        ->resolveForTeacherId($teacherData['Teacher_ID'])['class_ids'];
+                $scope = app(TeacherScopeResolver::class)->resolveForUser($user);
+                $teacherId = trim((string) ($scope['teacher_id'] ?? ''));
+                if ($teacherId !== '') {
+                    $myClassIds = $scope['teaching_class_ids'] ?? [];
                     $assignments = $assignments
-                        ->where('Teacher_ID', $teacherData['Teacher_ID'])
+                        ->where('Teacher_ID', $teacherId)
                         ->whereIn('Class_ID', $myClassIds)
                         ->values();
                 } else {
@@ -36,25 +45,25 @@ class AssignmentController extends Controller
             }
         }
 
-        $classRepo = app(\App\Repositories\GoogleSheets\ClassRepository::class);
-        $subjectRepo = app(\App\Repositories\GoogleSheets\SubjectRepository::class);
+        $classRepo = app(ClassRepository::class);
+        $subjectRepo = app(SubjectRepository::class);
         $classes = $classRepo->fetchAll()->keyBy('Class_ID');
         $subjects = collect($subjectRepo->fetchAll())->keyBy('Subject_ID');
-        $teachers = collect(app(\App\Interfaces\GoogleSheets\TeacherRepositoryInterface::class)->fetchAll())->keyBy('Teacher_ID');
+        $teachers = collect(app(TeacherRepositoryInterface::class)->fetchAll())->keyBy('Teacher_ID');
 
         return [
             'moduleName' => 'Tugas Harian',
             'data' => collect(array_values($assignments->toArray())),
             'pdfView' => 'pdf.generic_table',
             'headers' => ['Judul', 'Kelas', 'Mata Pelajaran', 'Guru', 'Deadline', 'Status'],
-            'mapRow' => function($row) use ($classes, $subjects, $teachers) {
+            'mapRow' => function ($row) use ($classes, $subjects, $teachers) {
                 return [
                     $row['Title'] ?? '-',
                     HumanReadableResolver::className($row['Class_ID'] ?? '', $classes),
                     HumanReadableResolver::subjectName($row['Subject_ID'] ?? '', $subjects),
                     HumanReadableResolver::teacherName($row['Teacher_ID'] ?? '', $teachers),
                     $row['Deadline'] ?? '-',
-                    \App\Support\Academic\AssignmentStatus::label($row['Status'] ?? 'PUBLISHED'),
+                    AssignmentStatus::label($row['Status'] ?? 'PUBLISHED'),
                 ];
             },
             'isLandscape' => false,
@@ -62,6 +71,7 @@ class AssignmentController extends Controller
     }
 
     protected $assignmentService;
+
     public function __construct(AssignmentService $assignmentService)
     {
         $this->assignmentService = $assignmentService;
@@ -70,7 +80,7 @@ class AssignmentController extends Controller
     private function currentRoleName(): string
     {
         $user = auth()->user();
-        if (!$user) {
+        if (! $user) {
             return '';
         }
 
@@ -79,7 +89,8 @@ class AssignmentController extends Controller
             return $roleName;
         }
 
-        $roleService = app(\App\Services\Core\RoleService::class);
+        $roleService = app(RoleService::class);
+
         return strtolower(trim($roleService->getRoleById($user->Role_ID ?? '')['Role_Name'] ?? ''));
     }
 
@@ -93,50 +104,55 @@ class AssignmentController extends Controller
     private function currentTeacherId(): ?string
     {
         $user = auth()->user();
-        if (!$user || !$this->isTeacherUser()) {
+        if (! $user || ! $this->isTeacherUser()) {
             return null;
         }
 
-        $teacherRepo = app(\App\Repositories\GoogleSheets\TeacherRepository::class);
-        $teacherData = collect($teacherRepo->fetchAll())->firstWhere('User_ID', $user->User_ID);
+        $scope = app(TeacherScopeResolver::class)->resolveForUser($user);
 
-        return $teacherData['Teacher_ID'] ?? null;
+        return ($scope['teacher_id'] ?? '') ?: null;
     }
 
-    public function index() {
+    public function index()
+    {
         if ($this->isTeacherUser()) {
             return redirect()->route('teacher.workspace.assignments');
         }
 
         $assignments = collect($this->assignmentService->getAll());
-        $classes = collect(app(\App\Repositories\GoogleSheets\ClassRepository::class)->fetchAll())->keyBy('Class_ID');
-        $subjects = collect(app(\App\Repositories\GoogleSheets\SubjectRepository::class)->fetchAll())->keyBy('Subject_ID');
-        $teachers = collect(app(\App\Repositories\GoogleSheets\TeacherRepository::class)->fetchAll())->keyBy('Teacher_ID');
+        $classes = collect(app(ClassRepository::class)->fetchAll())->keyBy('Class_ID');
+        $subjects = collect(app(SubjectRepository::class)->fetchAll())->keyBy('Subject_ID');
+        $teachers = collect(app(TeacherRepository::class)->fetchAll())->keyBy('Teacher_ID');
         $assignments = $assignments->map(function ($assignment) use ($classes, $subjects, $teachers) {
             $assignment['Class_Name'] = HumanReadableResolver::className($assignment['Class_ID'] ?? '', $classes);
             $assignment['Subject_Name'] = HumanReadableResolver::subjectName($assignment['Subject_ID'] ?? '', $subjects);
             $assignment['Teacher_Name'] = HumanReadableResolver::teacherName($assignment['Teacher_ID'] ?? '', $teachers);
+
             return $assignment;
         });
+
         return view('academic.assignments.index', compact('assignments'));
     }
+
     private function verifyAssignmentScope($assignmentId)
     {
         $user = auth()->user();
-        if (!$user) return;
+        if (! $user) {
+            return;
+        }
 
         // Only restrict teachers
-        if (!$this->isTeacherUser()) {
+        if (! $this->isTeacherUser()) {
             return;
         }
 
         $assignment = $this->assignmentService->getById($assignmentId);
-        if (!$assignment) {
+        if (! $assignment) {
             abort(404, 'Tugas tidak ditemukan.');
         }
 
         $teacherId = $this->currentTeacherId();
-        if (!$teacherId) {
+        if (! $teacherId) {
             abort(403, 'Profil Pengajar tidak ditemukan.');
         }
 
@@ -144,7 +160,7 @@ class AssignmentController extends Controller
             abort(403, 'Anda tidak memiliki hak akses untuk tugas ini (IDOR Protected).');
         }
 
-        if (!$this->teacherCanAccessClass($teacherId, $assignment['Class_ID'] ?? '')) {
+        if (! $this->teacherCanAccessClass($teacherId, $assignment['Class_ID'] ?? '')) {
             abort(403, 'Anda tidak memiliki hak akses untuk tugas kelas ini (IDOR Protected).');
         }
     }
@@ -152,18 +168,20 @@ class AssignmentController extends Controller
     private function verifyTeacherClassScope($classId)
     {
         $user = auth()->user();
-        if (!$user) return;
+        if (! $user) {
+            return;
+        }
 
-        if (!$this->isTeacherUser()) {
+        if (! $this->isTeacherUser()) {
             return;
         }
 
         $teacherId = $this->currentTeacherId();
-        if (!$teacherId) {
+        if (! $teacherId) {
             abort(403, 'Profil Pengajar tidak ditemukan.');
         }
 
-        if (!$this->teacherCanAccessClass($teacherId, $classId)) {
+        if (! $this->teacherCanAccessClass($teacherId, $classId)) {
             abort(403, 'Anda tidak memiliki hak akses untuk kelas ini (IDOR Protected).');
         }
     }
@@ -174,15 +192,15 @@ class AssignmentController extends Controller
             return false;
         }
 
-        return app(TeacherScopeResolver::class)->classAllowed(
+        return app(TeacherScopeResolver::class)->teachingClassAllowed(
             app(TeacherScopeResolver::class)->resolveForTeacherId($teacherId),
             $classId
         );
     }
 
     public function create(
-        \App\Repositories\GoogleSheets\ClassRepository $classRepo,
-        \App\Repositories\GoogleSheets\TeacherRepository $teacherRepo
+        ClassRepository $classRepo,
+        TeacherRepository $teacherRepo
     ) {
         $classes = $classRepo->fetchAll();
         $teachers = $teacherRepo->fetchAll();
@@ -191,27 +209,26 @@ class AssignmentController extends Controller
         $user = auth()->user();
         if ($user) {
             if ($this->isTeacherUser()) {
-                $teacherData = collect($teachers)->firstWhere('User_ID', $user->User_ID);
-                if ($teacherData) {
-                    $currentTeacherId = $teacherData['Teacher_ID'];
-                }
+                $currentTeacherId = $this->currentTeacherId();
             }
         }
 
         if ($currentTeacherId) {
             $allowedClassIds = app(TeacherScopeResolver::class)
-                ->resolveForTeacherId($currentTeacherId)['class_ids'];
+                ->resolveForTeacherId($currentTeacherId)['teaching_class_ids'];
             $classes = collect($classes)->whereIn('Class_ID', $allowedClassIds)->values();
         }
 
         return view('academic.assignments.create', compact('classes', 'teachers', 'currentTeacherId'));
     }
-    public function store(\App\Http\Requests\StoreAssignmentRequest $request) {
+
+    public function store(StoreAssignmentRequest $request)
+    {
         $data = $request->validated();
         $this->verifyTeacherClassScope($data['Class_ID']);
         if ($this->isTeacherUser()) {
             $teacherId = $this->currentTeacherId();
-            if (!$teacherId) {
+            if (! $teacherId) {
                 abort(403, 'Profil Pengajar tidak ditemukan.');
             }
             $data['Teacher_ID'] = $teacherId;
@@ -224,20 +241,22 @@ class AssignmentController extends Controller
                 return redirect()->route('teacher.workspace.assignments')->with('success', 'Tugas berhasil dibuat!');
             }
         }
+
         return redirect()->route('assignments.index')->with('success', 'Created!');
     }
+
     public function show(
         $id,
-        \App\Repositories\GoogleSheets\ClassRepository $classRepo,
-        \App\Repositories\GoogleSheets\TeacherRepository $teacherRepo
+        ClassRepository $classRepo,
+        TeacherRepository $teacherRepo
     ) {
         return $this->edit($id, $classRepo, $teacherRepo);
     }
 
     public function edit(
         $id,
-        \App\Repositories\GoogleSheets\ClassRepository $classRepo,
-        \App\Repositories\GoogleSheets\TeacherRepository $teacherRepo
+        ClassRepository $classRepo,
+        TeacherRepository $teacherRepo
     ) {
         $this->verifyAssignmentScope($id);
 
@@ -249,34 +268,33 @@ class AssignmentController extends Controller
         $user = auth()->user();
         if ($user) {
             if ($this->isTeacherUser()) {
-                $teacherData = collect($teachers)->firstWhere('User_ID', $user->User_ID);
-                if ($teacherData) {
-                    $currentTeacherId = $teacherData['Teacher_ID'];
-                }
+                $currentTeacherId = $this->currentTeacherId();
             }
         }
 
         if ($currentTeacherId) {
             $allowedClassIds = app(TeacherScopeResolver::class)
-                ->resolveForTeacherId($currentTeacherId)['class_ids'];
+                ->resolveForTeacherId($currentTeacherId)['teaching_class_ids'];
             $classes = collect($classes)->whereIn('Class_ID', $allowedClassIds)->values();
         }
 
         return view('academic.assignments.edit', compact('assignment', 'classes', 'teachers', 'currentTeacherId'));
     }
-    public function update(\App\Http\Requests\UpdateAssignmentRequest $request, $id) {
+
+    public function update(UpdateAssignmentRequest $request, $id)
+    {
         $this->verifyAssignmentScope($id);
         $data = $request->validated();
         $this->verifyTeacherClassScope($data['Class_ID']);
         if ($this->isTeacherUser()) {
             $teacherId = $this->currentTeacherId();
-            if (!$teacherId) {
+            if (! $teacherId) {
                 abort(403, 'Profil Pengajar tidak ditemukan.');
             }
             $data['Teacher_ID'] = $teacherId;
         }
 
-        \Illuminate\Support\Facades\Log::info("Assignment Update Payload: " . json_encode($data));
+        Log::info('Assignment Update Payload: '.json_encode($data));
 
         $this->assignmentService->update($id, $data);
 
@@ -286,9 +304,12 @@ class AssignmentController extends Controller
                 return redirect()->route('teacher.workspace.assignments')->with('success', 'Tugas berhasil diperbarui!');
             }
         }
+
         return redirect()->route('assignments.index')->with('success', 'Updated!');
     }
-    public function destroy($id) {
+
+    public function destroy($id)
+    {
         $this->verifyAssignmentScope($id);
 
         $this->assignmentService->delete($id);
@@ -299,6 +320,7 @@ class AssignmentController extends Controller
                 return redirect()->route('teacher.workspace.assignments')->with('success', 'Tugas berhasil dihapus!');
             }
         }
+
         return redirect()->route('assignments.index')->with('success', 'Deleted!');
     }
 }

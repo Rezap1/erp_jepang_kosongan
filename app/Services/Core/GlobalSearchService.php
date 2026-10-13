@@ -2,6 +2,7 @@
 
 namespace App\Services\Core;
 
+use App\Helpers\SheetValue;
 use App\Interfaces\GoogleSheets\AlumniRepositoryInterface;
 use App\Interfaces\GoogleSheets\AssignmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\BatchRepositoryInterface;
@@ -101,9 +102,11 @@ class GlobalSearchService
 
         try {
             if ($role === 'TEACHER') {
-                $teacherRepo = app(TeacherRepositoryInterface::class);
-                $teacher = collect($teacherRepo->fetchAll())->firstWhere('User_ID', $userId);
-                $context['teacher_id'] = $teacher['Teacher_ID'] ?? null;
+                $user = auth()->user();
+                if ($user && SheetValue::id($user->User_ID ?? $user->id ?? '') === SheetValue::id($userId)) {
+                    $scope = app(TeacherScopeResolver::class)->resolveForUser($user);
+                    $context['teacher_id'] = ($scope['teacher_id'] ?? '') ?: null;
+                }
             }
 
             if ($role === 'STUDENT') {
@@ -253,8 +256,10 @@ class GlobalSearchService
         try {
             $scope = app(TeacherScopeResolver::class)->resolveForTeacherId((string) $teacherId);
             $schedules = collect($scope['schedules'] ?? collect());
-            $classIds = $scope['class_ids'] ?? [];
-            $students = collect($scope['students'] ?? collect())->values();
+            $classIds = $scope['teaching_class_ids'] ?? [];
+            $students = collect($scope['students'] ?? collect())
+                ->whereIn('Student_ID', $scope['teaching_student_ids'] ?? [])
+                ->values();
             $classesById = collect(app(ClassRepositoryInterface::class)->fetchAll())->keyBy('Class_ID');
             $subjectsById = collect(app(SubjectRepositoryInterface::class)->fetchAll())->keyBy('Subject_ID');
 

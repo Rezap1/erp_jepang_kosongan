@@ -71,12 +71,19 @@ class H861TeacherScorePdfFilteringTest extends TestCase
         ]));
 
         $scope = [
+            'teacher_id' => 'TCH-A',
             'schedule_ids' => ['SCH-A', 'SCH-B'],
             'class_ids' => ['CLS-A', 'CLS-B'],
+            'managed_class_ids' => ['CLS-A', 'CLS-B'],
+            'teaching_class_ids' => ['CLS-A', 'CLS-B'],
             'subject_ids' => ['SUB-JP', 'SUB-MATH'],
             'student_ids' => ['STU-A', 'STU-EMPTY', 'STU-B', 'STU-B2'],
+            'managed_student_ids' => ['STU-A', 'STU-EMPTY', 'STU-B', 'STU-B2'],
+            'teaching_student_ids' => ['STU-A', 'STU-EMPTY', 'STU-B', 'STU-B2'],
             'assessment_ids' => ['ASM-A', 'ASM-A-OLD'],
             'students_by_class' => ['CLS-A' => ['STU-A', 'STU-EMPTY'], 'CLS-B' => ['STU-B', 'STU-B2']],
+            'managed_students_by_class' => ['CLS-A' => ['STU-A', 'STU-EMPTY'], 'CLS-B' => ['STU-B', 'STU-B2']],
+            'teaching_students_by_class' => ['CLS-A' => ['STU-A', 'STU-EMPTY'], 'CLS-B' => ['STU-B', 'STU-B2']],
             'schedule_student_ids' => ['SCH-A' => ['STU-A', 'STU-EMPTY'], 'SCH-B' => ['STU-B', 'STU-B2']],
             'classes' => collect([
                 ['Class_ID' => 'CLS-A', 'Class_Name' => 'Kelas Sakura'],
@@ -141,7 +148,10 @@ class H861TeacherScorePdfFilteringTest extends TestCase
         $this->app->instance(AttendanceService::class, Mockery::mock(AttendanceService::class));
         $this->app->instance(AttendanceRequestService::class, Mockery::mock(AttendanceRequestService::class));
         $this->app->instance(BatchService::class, Mockery::mock(BatchService::class));
-        $this->app->instance(TeacherScopeResolver::class, Mockery::mock(TeacherScopeResolver::class));
+        $scopeResolver = Mockery::mock(TeacherScopeResolver::class);
+        $scopeResolver->shouldReceive('resolveForUser')->zeroOrMoreTimes()->andReturn($scope);
+        $scopeResolver->shouldReceive('resolveForTeacherId')->zeroOrMoreTimes()->with('TCH-A')->andReturn($scope);
+        $this->app->instance(TeacherScopeResolver::class, $scopeResolver);
         $this->app->instance(SystemSettingService::class, $this->mockService(SystemSettingService::class, [
             'getThemeTokens' => [],
             'getCompanyProfile' => [],

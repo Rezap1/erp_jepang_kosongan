@@ -68,7 +68,7 @@ class TeacherClassStudentsApiScopeTest extends TestCase
         $this->app->instance(StudentRepositoryInterface::class, $studentRepo);
 
         $enrollmentRepo = Mockery::mock(ClassEnrollmentRepositoryInterface::class);
-        $enrollmentRepo->shouldReceive('fetchAll')->once()->andReturn(collect());
+        $enrollmentRepo->shouldNotReceive('fetchAll');
         $this->app->instance(ClassEnrollmentRepositoryInterface::class, $enrollmentRepo);
 
         $assessmentRepo = Mockery::mock(AssessmentRepositoryInterface::class);

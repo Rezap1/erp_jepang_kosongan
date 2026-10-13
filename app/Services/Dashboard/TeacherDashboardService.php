@@ -15,7 +15,7 @@ use App\Services\Core\ClassService;
 use App\Services\Core\NotificationService;
 use App\Services\Core\StudentService;
 use App\Services\Core\TeacherService;
-use App\Support\Academic\TeacherClassAssignmentResolver;
+use App\Support\Academic\TeacherScopeResolver;
 use App\Support\Presentation\IndonesianPresentation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -40,6 +40,8 @@ class TeacherDashboardService
 
     protected $notificationService;
 
+    protected $teacherScopeResolver;
+
     public function __construct(
         ScheduleService $scheduleService,
         AcademicAttendanceService $attendanceService,
@@ -49,7 +51,8 @@ class TeacherDashboardService
         StudentService $studentService,
         ClassService $classService,
         ActivityLogService $activityLogService,
-        NotificationService $notificationService
+        NotificationService $notificationService,
+        TeacherScopeResolver $teacherScopeResolver
     ) {
         $this->scheduleService = $scheduleService;
         $this->attendanceService = $attendanceService;
@@ -60,6 +63,7 @@ class TeacherDashboardService
         $this->classService = $classService;
         $this->activityLogService = $activityLogService;
         $this->notificationService = $notificationService;
+        $this->teacherScopeResolver = $teacherScopeResolver;
     }
 
     public function getDashboardData()
@@ -69,19 +73,15 @@ class TeacherDashboardService
             abort(403, 'Profil pengajar tidak ditemukan.');
         }
 
-        $userId = $user->User_ID ?? Auth::id();
-
-        // === Resolve Teacher ID (fetch once) ===
-        $allTeachers = collect($this->teacherService->getAllTeachers());
-        $teacher = $allTeachers->firstWhere('User_ID', $userId);
-        if (! $teacher || empty($teacher['Teacher_ID'])) {
+        $userId = trim((string) ($user->User_ID ?? Auth::id()));
+        $scope = $this->teacherScopeResolver->resolveForUser($user);
+        $teacherId = trim((string) ($scope['teacher_id'] ?? ''));
+        $teacher = (array) data_get($scope, 'identity.teacher', []);
+        if ($teacherId === '' || $teacher === []) {
             abort(403, 'Profil pengajar tidak ditemukan.');
         }
 
-        $teacherId = $teacher['Teacher_ID'];
-
         // === Fetch data ONCE ===
-        $allSchedules = collect($this->scheduleService->getAll());
         $allAttendances = collect($this->attendanceService->getAll());
         $allAssessments = collect($this->assessmentService->getAll());
         $allScores = collect($this->scoreService->getAll());
@@ -89,10 +89,7 @@ class TeacherDashboardService
             ->filter(fn ($student) => SheetValue::isOperationalStudent((array) $student));
 
         // === Filter by Teacher ===
-        $mySchedules = $allSchedules
-            ->where('Teacher_ID', $teacherId)
-            ->filter(fn ($schedule) => strtoupper(trim((string) ($schedule['Is_Active'] ?? 'TRUE'))) !== 'FALSE')
-            ->values();
+        $mySchedules = collect($scope['schedules'] ?? collect())->values();
         $myAssessments = $allAssessments->where('Teacher_ID', $teacherId);
 
         // === Today's Classes from MASTER_SCHEDULE ===
@@ -112,16 +109,11 @@ class TeacherDashboardService
             ];
         })->toArray();
 
-        // === My Students (from active teaching schedules only) ===
-        $allClasses = collect($this->classService->getAllClasses());
-        $myClassIds = collect(TeacherClassAssignmentResolver::managedClassIds(
-            $allClasses,
-            $mySchedules,
-            trim((string) $teacherId)
-        ));
-        $myStudentCount = $allStudents->filter(function ($s) use ($myClassIds) {
-            return $myClassIds->contains($s['Class_ID'] ?? '');
-        })->count();
+        // Homeroom ownership comes exclusively from MASTER_CLASS. Teaching
+        // schedules remain separate and are used only for teaching activity.
+        $myClassIds = collect($scope['managed_class_ids'] ?? []);
+        $homeroomClasses = collect($scope['managed_classes'] ?? collect())->values();
+        $myStudentCount = count($scope['managed_student_ids'] ?? []);
 
         $todayScheduleIds = $todayClassesRaw->pluck('Schedule_ID')->unique();
         $mySchedulesById = $mySchedules->keyBy('Schedule_ID');
@@ -189,7 +181,10 @@ class TeacherDashboardService
         try {
             $employeeRepo = app(EmployeeRepositoryInterface::class);
             $payrollRepo = app(PayrollRepositoryInterface::class);
-            $employee = collect($employeeRepo->fetchAll())->firstWhere('User_ID', $userId);
+            $employeeId = trim((string) data_get($scope, 'identity.employee_id', ''));
+            $employee = $employeeId === ''
+                ? null
+                : collect($employeeRepo->fetchAll())->firstWhere('Employee_ID', $employeeId);
             if ($employee) {
                 $payrolls = collect($payrollRepo->getAll())
                     ->where('Employee_ID', $employee['Employee_ID'])
@@ -211,6 +206,7 @@ class TeacherDashboardService
         // === KPI ===
         $kpi = [
             'today_classes' => $todayClassesRaw->count(),
+            'my_classes' => $myClassIds->count(),
             'my_students' => $myStudentCount,
             'attendance_today' => $attendanceToday,
             'attendance_pending' => $attendancePending,
@@ -286,7 +282,7 @@ class TeacherDashboardService
         ];
 
         return compact(
-            'kpi', 'todayClasses', 'attendanceStats', 'reminders', 'recentActivities', 'unreadNotifications', 'dashboardContext'
+            'kpi', 'todayClasses', 'homeroomClasses', 'attendanceStats', 'reminders', 'recentActivities', 'unreadNotifications', 'dashboardContext'
         );
     }
 

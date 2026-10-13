@@ -2,12 +2,14 @@
 
 namespace Tests\Unit;
 
+use App\Interfaces\GoogleSheets\AssessmentConfigRepositoryInterface;
 use App\Interfaces\GoogleSheets\AssessmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassEnrollmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScoreRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
+use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
 use App\Services\Academic\AssessmentConfigService;
 use App\Services\Academic\ScoreService;
 use App\Services\Core\EnterpriseEventService;
@@ -25,7 +27,7 @@ class TeacherScoreIntegrityTest extends TestCase
 
     public function test_assessment_config_rejects_unknown_partial_and_decimal_aspects(): void
     {
-        $repository = Mockery::mock(\App\Interfaces\GoogleSheets\AssessmentConfigRepositoryInterface::class);
+        $repository = Mockery::mock(AssessmentConfigRepositoryInterface::class);
         $repository->shouldReceive('getAll')->andReturn([
             ['Category_ID' => 'LANGUAGE', 'Category_Name' => 'Language', 'Is_Active' => 'TRUE', 'Aspects_JSON' => json_encode([
                 ['id' => 'speaking', 'label' => 'Speaking'],
@@ -53,7 +55,7 @@ class TeacherScoreIntegrityTest extends TestCase
             ['Class_ID' => 'CLS-B', 'Homeroom_Teacher_ID' => 'TCH-B'],
         ]));
         $enrollment = Mockery::mock(ClassEnrollmentRepositoryInterface::class);
-        $enrollment->shouldReceive('fetchAll')->once()->andReturn(collect([
+        $enrollment->shouldReceive('fetchAll')->zeroOrMoreTimes()->andReturn(collect([
             ['Class_ID' => 'CLS-A', 'Student_ID' => 'STU-A'],
             ['Class_ID' => 'CLS-B', 'Student_ID' => 'STU-B'],
         ]));
@@ -71,6 +73,12 @@ class TeacherScoreIntegrityTest extends TestCase
         $this->app->instance(ScheduleRepositoryInterface::class, $schedule);
         $this->app->instance(ClassRepositoryInterface::class, $classes);
         $this->app->instance(ClassEnrollmentRepositoryInterface::class, $enrollment);
+        $teacher = Mockery::mock(TeacherRepositoryInterface::class);
+        $teacher->shouldReceive('fetchAll')->once()->andReturn(collect([
+            ['Teacher_ID' => 'TCH-A', 'User_ID' => 'USR-A', 'Is_Active' => 'TRUE'],
+            ['Teacher_ID' => 'TCH-B', 'User_ID' => 'USR-B', 'Is_Active' => 'TRUE'],
+        ]));
+        $this->app->instance(TeacherRepositoryInterface::class, $teacher);
 
         $scoreService = new ScoreService(
             Mockery::mock(ScoreRepositoryInterface::class),
@@ -92,14 +100,43 @@ class TeacherScoreIntegrityTest extends TestCase
     public function test_score_create_fails_closed_when_fresh_readback_is_missing(): void
     {
         $this->actingAs(new GenericUser(['id' => 'USR-T', 'User_ID' => 'USR-T']));
-        $repository = new class implements ScoreRepositoryInterface {
-            public function fetchAll() { return collect(); }
-            public function findById(string $id) { return null; }
-            public function findByIdFresh(string $id) { return null; }
-            public function generateNewId(string $prefix, int $padding = 6): string { return 'SCR-TEST'; }
-            public function create(array $data) { return $data; }
-            public function update(string $id, array $data) { return $data; }
-            public function softDelete(string $id) { return true; }
+        $repository = new class implements ScoreRepositoryInterface
+        {
+            public function fetchAll()
+            {
+                return collect();
+            }
+
+            public function findById(string $id)
+            {
+                return null;
+            }
+
+            public function findByIdFresh(string $id)
+            {
+                return null;
+            }
+
+            public function generateNewId(string $prefix, int $padding = 6): string
+            {
+                return 'SCR-TEST';
+            }
+
+            public function create(array $data)
+            {
+                return $data;
+            }
+
+            public function update(string $id, array $data)
+            {
+                return $data;
+            }
+
+            public function softDelete(string $id)
+            {
+                return true;
+            }
+
             public function clearCache() {}
         };
         $student = Mockery::mock(StudentRepositoryInterface::class);
@@ -120,17 +157,57 @@ class TeacherScoreIntegrityTest extends TestCase
     {
         $this->actingAs(new GenericUser(['id' => 'USR-T', 'User_ID' => 'USR-T']));
         $rows = [];
-        $repository = new class($rows) implements ScoreRepositoryInterface {
+        $repository = new class($rows) implements ScoreRepositoryInterface
+        {
             public array $rows;
+
             public int $creates = 0;
-            public function __construct(array &$rows) { $this->rows =& $rows; }
-            public function fetchAll() { return collect(array_values($this->rows)); }
-            public function findById(string $id) { return $this->rows[$id] ?? null; }
-            public function findByIdFresh(string $id) { return $this->rows[$id] ?? null; }
-            public function generateNewId(string $prefix, int $padding = 6): string { return 'SCR-TEST'; }
-            public function create(array $data) { $this->creates++; $this->rows[$data['Score_ID']] = $data; return true; }
-            public function update(string $id, array $data) { $this->rows[$id] = array_merge($this->rows[$id] ?? [], $data); return true; }
-            public function softDelete(string $id) { return true; }
+
+            public function __construct(array &$rows)
+            {
+                $this->rows = &$rows;
+            }
+
+            public function fetchAll()
+            {
+                return collect(array_values($this->rows));
+            }
+
+            public function findById(string $id)
+            {
+                return $this->rows[$id] ?? null;
+            }
+
+            public function findByIdFresh(string $id)
+            {
+                return $this->rows[$id] ?? null;
+            }
+
+            public function generateNewId(string $prefix, int $padding = 6): string
+            {
+                return 'SCR-TEST';
+            }
+
+            public function create(array $data)
+            {
+                $this->creates++;
+                $this->rows[$data['Score_ID']] = $data;
+
+                return true;
+            }
+
+            public function update(string $id, array $data)
+            {
+                $this->rows[$id] = array_merge($this->rows[$id] ?? [], $data);
+
+                return true;
+            }
+
+            public function softDelete(string $id)
+            {
+                return true;
+            }
+
             public function clearCache() {}
         };
         $student = Mockery::mock(StudentRepositoryInterface::class);
@@ -139,7 +216,7 @@ class TeacherScoreIntegrityTest extends TestCase
         $events->shouldReceive('dispatch')->once();
         $service = new ScoreService($repository, $events, Mockery::mock(AssessmentRepositoryInterface::class), $student);
 
-        $payload = ['Score_ID' => 'SCR-' . str_repeat('a', 8) . '-' . str_repeat('b', 4) . '-' . str_repeat('c', 4) . '-' . str_repeat('d', 4) . '-' . str_repeat('e', 12), 'Student_ID' => 'STU-A', 'Schedule_ID' => 'SCH-A', 'Assessment_Category' => 'GENERAL', 'Score' => 80];
+        $payload = ['Score_ID' => 'SCR-'.str_repeat('a', 8).'-'.str_repeat('b', 4).'-'.str_repeat('c', 4).'-'.str_repeat('d', 4).'-'.str_repeat('e', 12), 'Student_ID' => 'STU-A', 'Schedule_ID' => 'SCH-A', 'Assessment_Category' => 'GENERAL', 'Score' => 80];
         $first = $service->create($payload);
         $second = $service->create($payload);
 

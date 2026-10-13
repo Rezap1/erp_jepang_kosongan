@@ -1,41 +1,53 @@
 <?php
+
 namespace App\Http\Controllers\Academic;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Services\Core\TeacherService;
-use App\Services\Core\ClassService;
-use App\Services\Academic\ScheduleService;
-use App\Services\Core\StudentService;
-use App\Services\Academic\AttendanceService;
-use App\Services\Academic\AttendanceLegacyClassifier;
-use App\Services\Attendance\AttendanceRequestService;
-use App\Services\Academic\SubjectService;
-use App\Services\Core\BatchService;
-use App\Services\Core\AssignmentService;
-use App\Services\Academic\ScoreService;
-use App\Services\Academic\AssessmentConfigService;
-use Illuminate\Support\Facades\Log;
-use App\Helpers\ReportHelper;
-use App\Helpers\DateHelper;
 use App\Helpers\AttendanceStatusHelper;
+use App\Helpers\DateHelper;
+use App\Helpers\ReportHelper;
+use App\Http\Controllers\Controller;
 use App\Interfaces\GoogleSheets\AssessmentRepositoryInterface;
+use App\Repositories\GoogleSheets\AssessmentRepository;
+use App\Services\Academic\AssessmentConfigService;
+use App\Services\Academic\AttendanceLegacyClassifier;
+use App\Services\Academic\AttendanceService;
+use App\Services\Academic\ScheduleService;
+use App\Services\Academic\ScoreService;
+use App\Services\Academic\SubjectService;
+use App\Services\Attendance\AttendanceRequestService;
+use App\Services\Core\AssignmentService;
+use App\Services\Core\BatchService;
+use App\Services\Core\ClassService;
+use App\Services\Core\StudentService;
+use App\Services\Core\TeacherService;
 use App\Support\Academic\TeacherScopeResolver;
 use App\Support\Reporting\HumanReadableResolver;
+use Illuminate\Http\Request;
 
 class TeacherWorkspaceController extends Controller
 {
     protected $teacherService;
+
     protected $classService;
+
     protected $scheduleService;
+
     protected $studentService;
+
     protected $attendanceService;
+
     protected $attendanceRequestService;
+
     protected $subjectService;
+
     protected $batchService;
+
     protected $assignmentService;
+
     protected $scoreService;
+
     protected $assessmentConfigService;
+
     protected $teacherScopeResolver;
 
     public function __construct(
@@ -50,7 +62,7 @@ class TeacherWorkspaceController extends Controller
         AssignmentService $assignmentService,
         ScoreService $scoreService,
         AssessmentConfigService $assessmentConfigService,
-        ?TeacherScopeResolver $teacherScopeResolver = null
+        TeacherScopeResolver $teacherScopeResolver
     ) {
         $this->teacherService = $teacherService;
         $this->classService = $classService;
@@ -68,70 +80,24 @@ class TeacherWorkspaceController extends Controller
 
     private function getTeacherId()
     {
-        $userId = auth()->user()->User_ID ?? null;
-        if (!$userId) return null;
+        $scope = $this->teacherScopeResolver->resolveForUser(auth()->user());
 
-        $allTeachers = collect($this->teacherService->getAllTeachers());
-        $teacher = $allTeachers->firstWhere('User_ID', $userId);
-        return $teacher['Teacher_ID'] ?? null;
+        return $scope['teacher_id'] ?? null;
     }
 
     private function verifyTeacherAccess()
     {
         $teacherId = $this->getTeacherId();
-        if (!$teacherId) {
+        if (! $teacherId) {
             abort(403, 'Profil Pengajar Belum Terhubung: Akun Anda belum dikaitkan dengan profil pengajar. Silakan hubungi Administrator.');
         }
+
         return $teacherId;
     }
 
     private function teacherScope(string $teacherId): array
     {
-        if ($this->teacherScopeResolver) {
-            return $this->teacherScopeResolver->resolveForTeacherId($teacherId);
-        }
-
-        $schedules = collect($this->scheduleService->getAll())
-            ->filter(fn ($schedule) => trim((string) ($schedule['Teacher_ID'] ?? '')) === trim($teacherId))
-            ->filter(fn ($schedule) => strtoupper(trim((string) ($schedule['Is_Active'] ?? 'TRUE'))) !== 'FALSE')
-            ->values();
-        $classIds = $schedules->pluck('Class_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all();
-        $scheduleIds = $schedules->pluck('Schedule_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all();
-        $students = collect($this->studentService->getAllStudents())
-            ->filter(fn ($student) => strtoupper(trim((string) ($student['Is_Active'] ?? 'TRUE'))) !== 'FALSE')
-            ->whereIn('Class_ID', $classIds)
-            ->values();
-        $studentsByClass = [];
-        foreach ($students as $student) {
-            $classId = trim((string) ($student['Class_ID'] ?? ''));
-            $studentId = trim((string) ($student['Student_ID'] ?? ''));
-            if ($classId !== '' && $studentId !== '') {
-                $studentsByClass[$classId][] = $studentId;
-            }
-        }
-        $studentsByClass = collect($studentsByClass)->map(fn ($ids) => array_values(array_unique($ids)))->all();
-        $scheduleStudentIds = [];
-        foreach ($schedules as $schedule) {
-            $scheduleId = trim((string) ($schedule['Schedule_ID'] ?? ''));
-            $classId = trim((string) ($schedule['Class_ID'] ?? ''));
-            if ($scheduleId !== '') {
-                $scheduleStudentIds[$scheduleId] = $studentsByClass[$classId] ?? [];
-            }
-        }
-
-        return [
-            'teacher_id' => trim($teacherId),
-            'schedule_ids' => $scheduleIds,
-            'class_ids' => $classIds,
-            'subject_ids' => $schedules->pluck('Subject_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all(),
-            'student_ids' => $students->pluck('Student_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values()->all(),
-            'assessment_ids' => [],
-            'students_by_class' => $studentsByClass,
-            'schedule_student_ids' => $scheduleStudentIds,
-            'schedules' => $schedules,
-            'classes' => collect(),
-            'students' => $students,
-        ];
+        return $this->teacherScopeResolver->resolveForTeacherId($teacherId);
     }
 
     public function schedule()
@@ -147,6 +113,7 @@ class TeacherWorkspaceController extends Controller
         $schedules = $schedules->map(function ($s) use ($classesById, $subjectsById) {
             $s['Class_Name'] = HumanReadableResolver::className($s['Class_ID'] ?? '', $classesById);
             $s['Subject_Name'] = HumanReadableResolver::subjectName($s['Subject_ID'] ?? '', $subjectsById);
+
             return $s;
         });
 
@@ -158,7 +125,7 @@ class TeacherWorkspaceController extends Controller
         $teacherId = $this->verifyTeacherAccess();
 
         $scope = $this->teacherScope($teacherId);
-        $myClassIds = collect($scope['class_ids'] ?? []);
+        $myClassIds = collect($scope['managed_class_ids'] ?? []);
 
         $allClasses = collect($this->classService->getAllClasses());
         $batchesById = collect($this->batchService->getAllBatches())->keyBy('Batch_ID');
@@ -166,6 +133,7 @@ class TeacherWorkspaceController extends Controller
         $classes = $allClasses->whereIn('Class_ID', $myClassIds)->map(function ($c) use ($batchesById) {
             $batch = $batchesById[$c['Batch_ID'] ?? ''] ?? null;
             $c['Batch_Name'] = $batch ? ($batch['Batch_Name'] ?? $c['Batch_ID']) : ($c['Batch_ID'] ?? '-');
+
             return $c;
         })->values();
 
@@ -174,11 +142,11 @@ class TeacherWorkspaceController extends Controller
 
     private function verifyClassAccess($teacherId, $classId, $schedules = null)
     {
-        $scope = is_array($schedules) && array_key_exists('class_ids', $schedules)
+        $scope = is_array($schedules) && array_key_exists('managed_class_ids', $schedules)
             ? $schedules
             : $this->teacherScope($teacherId);
 
-        if (!in_array(trim((string) $classId), $scope['class_ids'] ?? [], true)) {
+        if (! in_array(trim((string) $classId), $scope['managed_class_ids'] ?? [], true)) {
             abort(403, 'Anda tidak memiliki akses ke kelas ini.');
         }
     }
@@ -194,17 +162,18 @@ class TeacherWorkspaceController extends Controller
         $scope = $this->teacherScope($teacherId);
         $mySchedules = collect($scope['schedules'] ?? collect())->values();
         $teacherScheduleIds = $mySchedules->pluck('Schedule_ID')->filter()->unique()->values();
-        $teacherClassIds = collect($scope['class_ids'] ?? [])->values();
+        $teacherClassIds = collect($scope['managed_class_ids'] ?? [])->values();
 
         $classes = collect($this->classService->getAllClasses())
             ->filter(function ($class) use ($teacherClassIds) {
                 $isActive = strtoupper(trim((string) ($class['Is_Active'] ?? '')));
+
                 return ($isActive === 'TRUE' || $isActive === '')
                     && $teacherClassIds->contains($class['Class_ID'] ?? '');
             })
             ->values();
         $studentRows = collect($this->studentService->getAllStudents());
-        $legacyClassifier = new AttendanceLegacyClassifier();
+        $legacyClassifier = new AttendanceLegacyClassifier;
         $attendanceRows = collect($this->attendanceService->getAll())
             ->filter(function ($attendance) use ($legacyClassifier, $classes, $allSchedules, $teacherClassIds, $teacherScheduleIds) {
                 $classified = $legacyClassifier->classify($attendance, $classes, $allSchedules);
@@ -217,10 +186,12 @@ class TeacherWorkspaceController extends Controller
                 if ($classified['is_schedule_based']) {
                     return $teacherScheduleIds->contains($classified['schedule_id'] ?? '');
                 }
+
                 return $teacherClassIds->contains($classified['class_id'] ?? '');
             })
             ->sortBy(function ($attendance) {
                 $type = strtoupper(trim((string) ($attendance['Attendance_Type'] ?? '')));
+
                 return in_array($type, ['CLASS_QR', 'CLASS_MANUAL'], true) ? 0 : 1;
             })
             ->values();
@@ -257,7 +228,7 @@ class TeacherWorkspaceController extends Controller
         $className = $cls ? ($cls['Class_Name'] ?? $classId) : $classId;
 
         $students = collect($this->studentService->getAllStudents())
-            ->whereIn('Student_ID', $scope['students_by_class'][$classId] ?? [])
+            ->whereIn('Student_ID', $scope['managed_students_by_class'][$classId] ?? [])
             ->map(function ($s) {
                 return collect($s)->except(['Password', 'APP_KEY', 'HMAC', 'Token'])->toArray();
             })
@@ -283,6 +254,7 @@ class TeacherWorkspaceController extends Controller
         $attendanceRequests = collect($this->attendanceRequestService->getTeacherRequests(auth()->user()))
             ->filter(function ($request) use ($studentsById, $classId) {
                 $student = $studentsById[$request['Student_ID'] ?? ''] ?? null;
+
                 return $student && ($student['Class_ID'] ?? '') === $classId;
             })
             ->map(fn ($request) => $this->enrichTeacherAttendanceRequest($request, $studentsById, $classesById, $schedulesById, $subjectsById))
@@ -301,6 +273,7 @@ class TeacherWorkspaceController extends Controller
     public function reports()
     {
         $teacherId = $this->verifyTeacherAccess();
+
         return view('academic.teacher.reports', compact('teacherId'));
     }
 
@@ -368,10 +341,10 @@ class TeacherWorkspaceController extends Controller
         $classId = trim((string) ($filters['class_id'] ?? ''));
         $reportDate = trim((string) ($filters['date'] ?? ''));
 
-        if ($mode === 'student' && !in_array($studentId, $scope['student_ids'] ?? [], true)) {
+        if ($mode === 'student' && ! in_array($studentId, $scope['teaching_student_ids'] ?? [], true)) {
             abort(403, 'Siswa berada di luar ruang lingkup pengajaran Anda.');
         }
-        if ($mode === 'class' && !in_array($classId, $scope['class_ids'] ?? [], true)) {
+        if ($mode === 'class' && ! in_array($classId, $scope['teaching_class_ids'] ?? [], true)) {
             abort(403, 'Kelas berada di luar ruang lingkup pengajaran Anda.');
         }
 
@@ -423,18 +396,19 @@ class TeacherWorkspaceController extends Controller
                 'details' => $this->summarizeScoreDetails($details),
                 'notes' => trim((string) ($details['notes'] ?? '')),
             ];
-        })->sortBy(fn ($row) => ($row['date'] ?? '') . '|' . ($row['student_name'] ?? '') . '|' . ($row['subject_name'] ?? ''))->values();
+        })->sortBy(fn ($row) => ($row['date'] ?? '').'|'.($row['student_name'] ?? '').'|'.($row['subject_name'] ?? ''))->values();
 
         $rosterIds = $mode === 'student'
             ? collect([$studentId])
-            : collect(data_get($scope, 'students_by_class.' . $classId, []));
+            : collect(data_get($scope, 'teaching_students_by_class.'.$classId, []));
         if ($mode === 'class' && $rosterIds->isEmpty()) {
             $rosterIds = $studentsById->filter(fn ($student) => trim((string) ($student['Class_ID'] ?? '')) === $classId)->keys();
         }
-        $rosterIds = $rosterIds->filter(fn ($id) => in_array(trim((string) $id), $scope['student_ids'] ?? [], true))->map(fn ($id) => trim((string) $id))->unique()->values();
+        $rosterIds = $rosterIds->filter(fn ($id) => in_array(trim((string) $id), $scope['teaching_student_ids'] ?? [], true))->map(fn ($id) => trim((string) $id))->unique()->values();
         $studentGroups = $rosterIds->map(function ($id) use ($studentsById, $rows, $classesById, $classId) {
             $student = (array) $studentsById->get($id, []);
             $studentClassId = trim((string) ($student['Class_ID'] ?? $classId));
+
             return [
                 'student_id' => $id,
                 'student_name' => HumanReadableResolver::studentName($id, $studentsById),
@@ -446,24 +420,24 @@ class TeacherWorkspaceController extends Controller
 
         $selectedStudent = $mode === 'student' ? (array) $studentGroups->first() : [];
         $selectedClassName = $mode === 'class' ? HumanReadableResolver::className($classId, $classesById) : '';
-        $authorizedClassLabels = collect($scope['class_ids'] ?? [])
+        $authorizedClassLabels = collect($scope['teaching_class_ids'] ?? [])
             ->map(fn ($id) => HumanReadableResolver::className($id, $classesById))
             ->filter()->unique()->implode(', ');
         $authorizedSubjectLabels = collect($scope['subject_ids'] ?? [])
             ->map(fn ($id) => HumanReadableResolver::subjectName($id, $subjectsById))
             ->filter()->unique()->implode(', ');
-        $teachingScopeLabel = 'Kelas: ' . ($authorizedClassLabels ?: '-')
-            . ' | Mata pelajaran: ' . ($authorizedSubjectLabels ?: '-');
+        $teachingScopeLabel = 'Kelas: '.($authorizedClassLabels ?: '-')
+            .' | Mata pelajaran: '.($authorizedSubjectLabels ?: '-');
         $title = $mode === 'student' ? 'Laporan Nilai Siswa' : 'Laporan Nilai Kelas';
         $filename = $mode === 'student'
-            ? 'LAPORAN-NILAI-' . ($selectedStudent['student_name'] ?? $studentId) . '-' . now()->format('Ymd')
-            : 'LAPORAN-NILAI-' . $selectedClassName . '-' . str_replace('-', '', $reportDate);
+            ? 'LAPORAN-NILAI-'.($selectedStudent['student_name'] ?? $studentId).'-'.now()->format('Ymd')
+            : 'LAPORAN-NILAI-'.$selectedClassName.'-'.str_replace('-', '', $reportDate);
         $emptyMessage = $mode === 'student'
             ? 'Belum ada data nilai untuk siswa ini.'
             : 'Belum ada data nilai pada tanggal yang dipilih.';
         $scopeLabel = $mode === 'student'
-            ? 'Siswa: ' . ($selectedStudent['student_name'] ?? $studentId)
-            : 'Kelas: ' . $selectedClassName . ' | Tanggal: ' . DateHelper::format($reportDate, 'd F Y');
+            ? 'Siswa: '.($selectedStudent['student_name'] ?? $studentId)
+            : 'Kelas: '.$selectedClassName.' | Tanggal: '.DateHelper::format($reportDate, 'd F Y');
 
         return ReportHelper::export($format, $title, $rows, [
             'filename' => $filename,
@@ -477,7 +451,7 @@ class TeacherWorkspaceController extends Controller
             'studentCount' => $studentGroups->count(),
             'studentGroups' => $studentGroups,
             'emptyMessage' => $emptyMessage,
-            'summary' => '<tr><td>Total Siswa</td><td>: ' . $studentGroups->count() . '</td><td>Total Data Nilai</td><td>: ' . $rows->count() . '</td></tr>',
+            'summary' => '<tr><td>Total Siswa</td><td>: '.$studentGroups->count().'</td><td>Total Data Nilai</td><td>: '.$rows->count().'</td></tr>',
         ], 'pdf.teacher_score_report', [], null, true);
     }
 
@@ -494,12 +468,12 @@ class TeacherWorkspaceController extends Controller
         $schedulesById = $allSchedules->keyBy('Schedule_ID');
         $mySchedules = collect($scope['schedules'] ?? collect())->values();
         $myScheduleIds = $mySchedules->pluck('Schedule_ID')->filter()->values();
-        $myClassIds = collect($scope['class_ids'] ?? [])->values();
+        $myClassIds = collect($scope['managed_class_ids'] ?? [])->values();
         $classesById = collect($this->classService->getAllClasses())->keyBy('Class_ID');
         $studentsById = collect($this->studentService->getAllStudents())->keyBy('Student_ID');
         $subjectsById = collect($this->subjectService->getAll())->keyBy('Subject_ID');
         $teachersById = collect($this->teacherService->getAllTeachers())->keyBy('Teacher_ID');
-        $classifier = new AttendanceLegacyClassifier();
+        $classifier = new AttendanceLegacyClassifier;
 
         $rows = collect($this->attendanceService->getAll())
             ->filter(function ($attendance) use ($classifier, $classesById, $allSchedules, $myScheduleIds, $myClassIds) {
@@ -513,6 +487,7 @@ class TeacherWorkspaceController extends Controller
                 if ($classified['is_schedule_based']) {
                     return $myScheduleIds->contains($classified['schedule_id'] ?? '');
                 }
+
                 return $myClassIds->contains($classified['class_id'] ?? '');
             })
             ->map(function ($attendance) use ($classifier, $studentsById, $classesById, $allSchedules, $schedulesById, $subjectsById, $teachersById) {
@@ -547,7 +522,7 @@ class TeacherWorkspaceController extends Controller
         $teacherId = $this->verifyTeacherAccess();
         $studentsById = collect($this->studentService->getAllStudents())
             ->keyBy('Student_ID');
-        $assessmentsById = collect(app(\App\Repositories\GoogleSheets\AssessmentRepository::class)->fetchAll())
+        $assessmentsById = collect(app(AssessmentRepository::class)->fetchAll())
             ->keyBy('Assessment_ID');
         $assignmentsById = collect($this->assignmentService->getAll())
             ->keyBy('Assignment_ID');
@@ -585,7 +560,7 @@ class TeacherWorkspaceController extends Controller
             $format,
             $title,
             collect($rows),
-            ['summary' => '<tr><td>Total Data</td><td>: ' . count($rows) . '</td></tr>'],
+            ['summary' => '<tr><td>Total Data</td><td>: '.count($rows).'</td></tr>'],
             'pdf.generic_table',
             $headers,
             fn ($row) => $row,
@@ -606,7 +581,7 @@ class TeacherWorkspaceController extends Controller
                 continue;
             }
             $displayValue = is_array($value) ? implode(', ', array_map('strval', $value)) : (string) $value;
-            $summary[] = ucwords(str_replace('_', ' ', (string) $key)) . ': ' . $displayValue;
+            $summary[] = ucwords(str_replace('_', ' ', (string) $key)).': '.$displayValue;
         }
 
         return implode('; ', $summary) ?: ($details['notes'] ?? '-');
@@ -615,22 +590,22 @@ class TeacherWorkspaceController extends Controller
     private function scoreBelongsToResolvedScope(array $score, array $scope, $schedulesById): bool
     {
         $studentId = trim((string) ($score['Student_ID'] ?? ''));
-        if ($studentId === '' || !in_array($studentId, $scope['student_ids'] ?? [], true)) {
+        if ($studentId === '' || ! in_array($studentId, $scope['teaching_student_ids'] ?? [], true)) {
             return false;
         }
 
         $scheduleId = trim((string) ($score['Schedule_ID'] ?? ''));
         $schedule = (array) $schedulesById->get($scheduleId, []);
         if ($scheduleId !== '') {
-            if (!in_array($scheduleId, $scope['schedule_ids'] ?? [], true)) {
+            if (! in_array($scheduleId, $scope['schedule_ids'] ?? [], true)) {
                 return false;
             }
-            if (!in_array($studentId, data_get($scope, 'schedule_student_ids.' . $scheduleId, []), true)) {
+            if (! in_array($studentId, data_get($scope, 'schedule_student_ids.'.$scheduleId, []), true)) {
                 return false;
             }
         } else {
             $assessmentId = trim((string) ($score['Assessment_ID'] ?? $score['Assignment_ID'] ?? ''));
-            if ($assessmentId === '' || !in_array($assessmentId, $scope['assessment_ids'] ?? [], true)) {
+            if ($assessmentId === '' || ! in_array($assessmentId, $scope['assessment_ids'] ?? [], true)) {
                 return false;
             }
         }
@@ -638,7 +613,7 @@ class TeacherWorkspaceController extends Controller
         $classId = trim((string) ($schedule['Class_ID'] ?? $score['Class_ID'] ?? ''));
         $subjectId = trim((string) ($schedule['Subject_ID'] ?? $score['Subject_ID'] ?? ''));
 
-        return ($classId === '' || in_array($classId, $scope['class_ids'] ?? [], true))
+        return ($classId === '' || in_array($classId, $scope['teaching_class_ids'] ?? [], true))
             && ($subjectId === '' || in_array($subjectId, $scope['subject_ids'] ?? [], true));
     }
 
@@ -678,7 +653,7 @@ class TeacherWorkspaceController extends Controller
             $label = ucwords(str_replace('_', ' ', (string) $key));
             $display = is_array($value) ? implode(', ', array_map('strval', $value)) : trim((string) $value);
             if (is_numeric($value) && isset($scale[(int) $value])) {
-                $display .= ' - ' . $scale[(int) $value];
+                $display .= ' - '.$scale[(int) $value];
             }
             $lines[] = ['label' => $label, 'value' => $display ?: '-'];
         }
@@ -702,7 +677,7 @@ class TeacherWorkspaceController extends Controller
 
         return response($csv)
             ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
     }
 
     // ==========================================
@@ -716,7 +691,7 @@ class TeacherWorkspaceController extends Controller
         $scope = $this->teacherScope($teacherId);
 
         $students = collect($this->studentService->getAllStudents())
-            ->whereIn('Student_ID', $scope['student_ids'] ?? [])
+            ->whereIn('Student_ID', $scope['managed_student_ids'] ?? [])
             ->map(function ($s) {
                 return collect($s)->except(['Password', 'APP_KEY', 'HMAC', 'Token'])->toArray();
             })
@@ -726,6 +701,7 @@ class TeacherWorkspaceController extends Controller
 
         $students = $students->map(function ($s) use ($classesById) {
             $s['Class_Name'] = HumanReadableResolver::className($s['Class_ID'] ?? '', $classesById);
+
             return $s;
         });
 
@@ -743,6 +719,7 @@ class TeacherWorkspaceController extends Controller
         $classOptions = $readModel['classes']->mapWithKeys(function ($class) {
             $classId = trim((string) ($class['Class_ID'] ?? ''));
             $label = trim((string) ($class['Class_Name'] ?? '')) ?: $classId;
+
             return $classId === '' ? [] : [$classId => $label];
         })->all();
 
@@ -779,7 +756,7 @@ class TeacherWorkspaceController extends Controller
         $assessmentConfigs = collect($this->assessmentConfigService->getActiveCategories())
             ->keyBy(fn ($config) => strtoupper(trim((string) ($config['Category_ID'] ?? ''))))
             ->toArray();
-        $classIds = array_values($scope['class_ids'] ?? []);
+        $classIds = array_values($scope['teaching_class_ids'] ?? []);
         $reportClasses = collect($scope['classes'] ?? [])
             ->filter(fn ($class) => in_array(trim((string) ($class['Class_ID'] ?? '')), $classIds, true))
             ->map(fn ($class) => [
@@ -804,7 +781,7 @@ class TeacherWorkspaceController extends Controller
         $students = collect($scope['students'] ?? []);
         if ($students->isEmpty()) {
             $students = collect($this->studentService->getAllStudents())
-                ->whereIn('Student_ID', $scope['student_ids'] ?? [])
+                ->whereIn('Student_ID', $scope['teaching_student_ids'] ?? [])
                 ->values();
         }
         $studentsById = $students->keyBy('Student_ID');
@@ -875,7 +852,7 @@ class TeacherWorkspaceController extends Controller
         $selectedSubjectName = $selectedSubject !== ''
             ? ($subjectOptions->firstWhere('Subject_ID', $selectedSubject)['Subject_Name'] ?? $selectedSubject)
             : 'Semua Mata Pelajaran';
-        $classStudentIds = collect($scope['students_by_class'][$selectedClass] ?? [])
+        $classStudentIds = collect($scope['teaching_students_by_class'][$selectedClass] ?? [])
             ->map(fn ($id) => trim((string) $id))->filter()->unique();
         $summary = [
             'students' => $classStudentIds->count(),
@@ -885,7 +862,7 @@ class TeacherWorkspaceController extends Controller
         $scoreGroups = $scores->groupBy(fn ($score) => ($score['Category_Label'] ?? 'Penilaian').'|'.($score['Display_Date'] ?? ''));
 
         $reportStudents = $studentsById
-            ->filter(fn ($student, $id) => in_array(trim((string) $id), $scope['student_ids'] ?? [], true))
+            ->filter(fn ($student, $id) => in_array(trim((string) $id), $scope['teaching_student_ids'] ?? [], true))
             ->map(fn ($student) => [
                 'Student_ID' => trim((string) ($student['Student_ID'] ?? '')),
                 'Full_Name' => trim((string) ($student['Full_Name'] ?? $student['Username'] ?? $student['Student_ID'] ?? 'Siswa')),
@@ -904,7 +881,7 @@ class TeacherWorkspaceController extends Controller
         $teacherId = $this->verifyTeacherAccess();
 
         $scope = $this->teacherScope($teacherId);
-        $myClassIds = $scope['class_ids'];
+        $myClassIds = $scope['teaching_class_ids'];
 
         $schedulesById = collect($this->scheduleService->getAll())
             ->filter(fn ($schedule) => in_array(trim((string) ($schedule['Schedule_ID'] ?? '')), $scope['schedule_ids'], true))
@@ -915,7 +892,7 @@ class TeacherWorkspaceController extends Controller
                 'Class_ID' => $schedule['Class_ID'] ?? '',
                 'Subject_ID' => $schedule['Subject_ID'] ?? '',
                 'label' => trim((string) ($schedule['Subject_Name'] ?? $schedule['Subject_ID'] ?? 'Jadwal'))
-                    . ' — ' . trim((string) ($schedule['Class_ID'] ?? '')),
+                    .' — '.trim((string) ($schedule['Class_ID'] ?? '')),
             ];
         })->values();
 
@@ -934,19 +911,20 @@ class TeacherWorkspaceController extends Controller
         $classes = collect($myClassIds)->map(function ($cid) use ($classesById) {
             return [
                 'Class_ID' => $cid,
-                'Class_Name' => HumanReadableResolver::className($cid, $classesById)
+                'Class_Name' => HumanReadableResolver::className($cid, $classesById),
             ];
         });
 
         $students = collect($this->studentService->getAllStudents())
-            ->whereIn('Student_ID', $scope['student_ids'] ?? [])
+            ->whereIn('Student_ID', $scope['teaching_student_ids'] ?? [])
             ->map(function ($s) use ($classesById) {
                 $s['Class_Name'] = HumanReadableResolver::className($s['Class_ID'] ?? '', $classesById);
+
                 return collect($s)->only(['Student_ID', 'Full_Name', 'Username', 'Class_ID', 'Class_Name'])->toArray();
             })
             ->values();
 
-        $studentsByClass = collect($scope['students_by_class'] ?? [])->map(fn ($ids) => array_values($ids))->all();
+        $studentsByClass = collect($scope['teaching_students_by_class'] ?? [])->map(fn ($ids) => array_values($ids))->all();
         $studentsBySchedule = collect($scope['schedule_student_ids'] ?? [])->map(fn ($ids) => array_values($ids))->all();
         $assessmentConfigs = $this->assessmentConfigService->getActiveCategories();
 
@@ -966,25 +944,25 @@ class TeacherWorkspaceController extends Controller
             'Score_ID' => ['nullable', 'string', 'regex:/^SCR-[0-9a-f-]{36}$/i'],
             'Score' => 'nullable|numeric|min:0|max:100',
             'Score_Value' => 'nullable|numeric|min:0|max:100',
-            'Notes' => 'nullable|string|max:2000'
+            'Notes' => 'nullable|string|max:2000',
         ]);
 
         $category = strtoupper(trim((string) $validated['Assessment_Category']));
         $categoryConfig = $this->assessmentConfigService->getCategoryConfig($category);
-        if (!$categoryConfig || (!$this->assessmentConfigService->isNumericCategory($category) && empty($this->assessmentConfigService->getAspects($category)))) {
+        if (! $categoryConfig || (! $this->assessmentConfigService->isNumericCategory($category) && empty($this->assessmentConfigService->getAspects($category)))) {
             return redirect()->back()->with('error', 'Kategori penilaian belum tersedia di MASTER_ASSESSMENT_CONFIG.')->withInput();
         }
 
         $studentId = trim((string) $validated['Student_ID']);
         $scope = $this->scoreService->getTeacherScoreScope($teacherId);
         $scheduleId = trim((string) $validated['Schedule_ID']);
-        if (!in_array($scheduleId, $scope['schedule_ids'], true)
-            || !$this->scoreService->isStudentInSchedule($studentId, $scheduleId, $scope)) {
+        if (! in_array($scheduleId, $scope['schedule_ids'], true)
+            || ! $this->scoreService->isStudentInSchedule($studentId, $scheduleId, $scope)) {
             abort(403, 'Siswa atau jadwal tidak berada dalam scope pengajaran Anda.');
         }
 
         $assessmentId = trim((string) ($validated['Assessment_ID'] ?? ''));
-        if ($assessmentId !== '' && !in_array($assessmentId, $scope['assessment_ids'], true)) {
+        if ($assessmentId !== '' && ! in_array($assessmentId, $scope['assessment_ids'], true)) {
             abort(403, 'Assessment tidak berada dalam scope pengajaran Anda.');
         }
 
@@ -1011,7 +989,7 @@ class TeacherWorkspaceController extends Controller
         }
 
         $schedule = $this->scheduleService->getById($scheduleId);
-        if (!$schedule) {
+        if (! $schedule) {
             return redirect()->back()->with('error', 'Jadwal pengajaran tidak ditemukan.')->withInput();
         }
         $data['Class_ID'] = trim((string) ($schedule['Class_ID'] ?? ''));
@@ -1022,9 +1000,9 @@ class TeacherWorkspaceController extends Controller
             if (trim((string) $scoreInput) === '') {
                 return redirect()->back()->with('error', 'Nilai Ujian Bab harus berupa angka.')->withInput();
             }
-        } elseif (!empty($evaluationDetails)) {
+        } elseif (! empty($evaluationDetails)) {
             $isValid = $this->assessmentConfigService->validateAspectPayload($category, $evaluationDetails);
-            if (!$isValid) {
+            if (! $isValid) {
                 return redirect()->back()->with('error', 'Aspek penilaian tidak valid atau tidak terdaftar untuk kategori ini.')->withInput();
             }
         } else {
@@ -1039,7 +1017,7 @@ class TeacherWorkspaceController extends Controller
 
             return redirect()->route('teacher.workspace.scores')->with('success', 'Penilaian berhasil disimpan.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal menyimpan penilaian: ' . $this->safeExceptionMessage($e))->withInput();
+            return redirect()->back()->with('error', 'Gagal menyimpan penilaian: '.$this->safeExceptionMessage($e))->withInput();
         }
     }
 
@@ -1049,13 +1027,14 @@ class TeacherWorkspaceController extends Controller
         $score = $this->scoreService->getById($id);
         $scope = $this->scoreService->getTeacherScoreScope($teacherId);
 
-        if (!$score || !$this->scoreService->isScoreInTeacherScope($score, $teacherId, $scope)) {
+        if (! $score || ! $this->scoreService->isScoreInTeacherScope($score, $teacherId, $scope)) {
             abort(403, 'Anda tidak memiliki akses untuk mengubah nilai ini.');
         }
 
         $studentsById = collect($this->studentService->getAllStudents())->keyBy('Student_ID');
         $score['Student_Name'] = HumanReadableResolver::studentName($score['Student_ID'] ?? '', $studentsById);
         $assessmentConfigs = $this->assessmentConfigService->getActiveCategories();
+
         return view('academic.teacher.scores-edit', compact('score', 'teacherId', 'assessmentConfigs'));
     }
 
@@ -1065,7 +1044,7 @@ class TeacherWorkspaceController extends Controller
         $existing = $this->scoreService->getById($id);
         $scope = $this->scoreService->getTeacherScoreScope($teacherId);
 
-        if (!$existing || !$this->scoreService->isScoreInTeacherScope($existing, $teacherId, $scope)) {
+        if (! $existing || ! $this->scoreService->isScoreInTeacherScope($existing, $teacherId, $scope)) {
             abort(403, 'Anda tidak memiliki akses untuk mengubah nilai ini.');
         }
 
@@ -1077,8 +1056,8 @@ class TeacherWorkspaceController extends Controller
             'Score_Value' => 'nullable|numeric|min:0|max:100',
         ]);
         $category = strtoupper(trim((string) $validated['Assessment_Category']));
-        if (!$this->assessmentConfigService->getCategoryConfig($category)
-            || (!$this->assessmentConfigService->isNumericCategory($category) && empty($this->assessmentConfigService->getAspects($category)))) {
+        if (! $this->assessmentConfigService->getCategoryConfig($category)
+            || (! $this->assessmentConfigService->isNumericCategory($category) && empty($this->assessmentConfigService->getAspects($category)))) {
             return redirect()->back()->with('error', 'Kategori penilaian belum tersedia di MASTER_ASSESSMENT_CONFIG.')->withInput();
         }
 
@@ -1098,7 +1077,7 @@ class TeacherWorkspaceController extends Controller
 
         $existingScheduleId = trim((string) ($existing['Schedule_ID'] ?? ''));
         $schedule = $existingScheduleId !== '' ? $this->scheduleService->getById($existingScheduleId) : null;
-        if (!$schedule) {
+        if (! $schedule) {
             return redirect()->back()->with('error', 'Jadwal pengajaran tidak ditemukan.')->withInput();
         }
         $data['Class_ID'] = trim((string) ($schedule['Class_ID'] ?? ''));
@@ -1109,15 +1088,16 @@ class TeacherWorkspaceController extends Controller
             if (trim((string) $scoreInput) === '') {
                 return redirect()->back()->with('error', 'Nilai Ujian Bab harus berupa angka.')->withInput();
             }
-        } elseif (!$this->assessmentConfigService->validateAspectPayload($category, $evaluationDetails)) {
+        } elseif (! $this->assessmentConfigService->validateAspectPayload($category, $evaluationDetails)) {
             return redirect()->back()->with('error', 'Aspek penilaian tidak valid atau belum lengkap.')->withInput();
         }
 
         try {
             $this->scoreService->update($id, $data);
+
             return redirect()->route('teacher.workspace.scores')->with('success', 'Penilaian berhasil diperbarui.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal memperbarui penilaian: ' . $this->safeExceptionMessage($e))->withInput();
+            return redirect()->back()->with('error', 'Gagal memperbarui penilaian: '.$this->safeExceptionMessage($e))->withInput();
         }
     }
 
@@ -1126,7 +1106,7 @@ class TeacherWorkspaceController extends Controller
         $teacherId = $this->verifyTeacherAccess();
 
         $scope = $this->teacherScope($teacherId);
-        $myClassIds = $scope['class_ids'] ?? [];
+        $myClassIds = $scope['teaching_class_ids'] ?? [];
 
         $assignments = collect($this->assignmentService->getAll())
             ->where('Teacher_ID', $teacherId)
@@ -1137,6 +1117,7 @@ class TeacherWorkspaceController extends Controller
 
         $assignments = $assignments->map(function ($a) use ($classesById) {
             $a['Class_Name'] = HumanReadableResolver::className($a['Class_ID'] ?? '', $classesById);
+
             return $a;
         });
 
@@ -1151,13 +1132,13 @@ class TeacherWorkspaceController extends Controller
         $allSchedules = collect($this->teacherScope($teacherId)['schedules'] ?? collect());
         $classesById = collect($this->classService->getAllClasses())->keyBy('Class_ID');
         $subjectsById = collect($this->subjectService->getAll())->keyBy('Subject_ID');
-        $events = $allSchedules->map(function($s) use ($classesById, $subjectsById) {
+        $events = $allSchedules->map(function ($s) use ($classesById, $subjectsById) {
             return [
                 'date' => $s['Date'] ?? date('Y-m-d'),
                 'title' => HumanReadableResolver::subjectName($s['Subject_ID'] ?? '', $subjectsById)
-                    . ' - ' . HumanReadableResolver::className($s['Class_ID'] ?? '', $classesById)
-                    . ' - ' . ($s['Topic'] ?? ''),
-                'type' => $s['Type'] ?? 'Class'
+                    .' - '.HumanReadableResolver::className($s['Class_ID'] ?? '', $classesById)
+                    .' - '.($s['Topic'] ?? ''),
+                'type' => $s['Type'] ?? 'Class',
             ];
         })->values()->toArray();
 
@@ -1167,6 +1148,7 @@ class TeacherWorkspaceController extends Controller
     private function teacherScopedScores(string $teacherId, ?array $scope = null)
     {
         $scope ??= $this->scoreService->getTeacherScoreScope($teacherId);
+
         return collect($this->scoreService->getAll())
             ->filter(fn ($score) => $this->scoreService->isScoreInTeacherScope($score, $teacherId, $scope))
             ->values();

@@ -7,7 +7,6 @@ use App\Helpers\SheetValue;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreClassRequest;
 use App\Http\Requests\UpdateClassRequest;
-use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
 use App\Services\Core\BatchService;
 use App\Services\Core\ClassService;
 use App\Services\Core\ProgramService;
@@ -314,18 +313,16 @@ class ClassController extends Controller
             $allowedStudentIds = null;
 
             if (str_contains($roleName, 'TEACHER') || str_contains($roleName, 'GURU')) {
-                $teacherRepo = app(TeacherRepositoryInterface::class);
-                $teacher = collect($teacherRepo->fetchAll())->firstWhere('User_ID', $user->User_ID ?? '');
-                if (! $teacher || empty($teacher['Teacher_ID'])) {
+                $resolver = app(TeacherScopeResolver::class);
+                $scope = $resolver->resolveForUser($user);
+                if (empty($scope['teacher_id'])) {
                     return response()->json(['error' => 'Profil pengajar tidak ditemukan.'], 403);
                 }
 
-                $resolver = app(TeacherScopeResolver::class);
-                $scope = $resolver->resolveForTeacherId($teacher['Teacher_ID']);
-                if (! $resolver->classAllowed($scope, $requestedClassId)) {
+                if (! $resolver->managedClassAllowed($scope, $requestedClassId)) {
                     return response()->json(['error' => 'Akses Ditolak: Kelas di luar wewenang Anda.'], 403);
                 }
-                $allowedStudentIds = $scope['students_by_class'][$requestedClassId] ?? [];
+                $allowedStudentIds = $scope['managed_students_by_class'][$requestedClassId] ?? [];
             }
 
             $students = $studentService->getAllStudents();

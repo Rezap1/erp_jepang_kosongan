@@ -22,6 +22,7 @@ use App\Services\Core\ClassService;
 use App\Services\Core\EnterpriseEventService;
 use App\Services\Core\StudentService;
 use App\Services\Core\TeacherService;
+use App\Support\Academic\TeacherScopeResolver;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -302,7 +303,7 @@ class UjianBabAssessmentWorkflowTest extends TestCase
                 && $data['Subject_ID'] === 'SUB-A'
                 && $data['Assessment_Category'] === 'UJIAN_BAB'
                 && $data['Score'] === '90'
-                && !array_key_exists('Schedule_ID', $data);
+                && ! array_key_exists('Schedule_ID', $data);
         }))->andReturn(['Score_ID' => 'SCR-UJIAN']);
 
         $controller = $this->teacherController($scoreService, $this->scheduleService(), $this->assessmentConfigService());
@@ -404,6 +405,16 @@ class UjianBabAssessmentWorkflowTest extends TestCase
         ScheduleService $scheduleService,
         AssessmentConfigService $assessmentConfigService
     ): TeacherWorkspaceController {
+        $scopeResolver = Mockery::mock(TeacherScopeResolver::class);
+        $scopeResolver->shouldReceive('resolveForUser')->zeroOrMoreTimes()->andReturn(array_merge(
+            ['teacher_id' => 'TCH-A'],
+            $this->teacherScope()
+        ));
+        $scopeResolver->shouldReceive('resolveForTeacherId')->zeroOrMoreTimes()->with('TCH-A')->andReturn(array_merge(
+            ['teacher_id' => 'TCH-A'],
+            $this->teacherScope()
+        ));
+
         return new TeacherWorkspaceController(
             Mockery::mock(TeacherService::class)->shouldReceive('getAllTeachers')->zeroOrMoreTimes()->andReturn(collect([
                 ['Teacher_ID' => 'TCH-A', 'User_ID' => 'USR-T'],
@@ -417,7 +428,8 @@ class UjianBabAssessmentWorkflowTest extends TestCase
             Mockery::mock(BatchService::class),
             Mockery::mock(AssignmentService::class),
             $scoreService,
-            $assessmentConfigService
+            $assessmentConfigService,
+            $scopeResolver
         );
     }
 }

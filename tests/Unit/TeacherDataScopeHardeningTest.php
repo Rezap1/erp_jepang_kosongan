@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Interfaces\GoogleSheets\AssessmentRepositoryInterface;
-use App\Interfaces\GoogleSheets\ClassEnrollmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
@@ -14,21 +13,25 @@ use Tests\TestCase;
 
 class TeacherDataScopeHardeningTest extends TestCase
 {
-    public function test_teacher_scope_uses_homeroom_assignment_with_legacy_schedule_fallback(): void
+    public function test_teacher_scope_separates_homeroom_from_teaching_without_legacy_roster_fallback(): void
     {
         $scope = $this->resolver()->resolveForTeacherId('TCH-A');
 
         $this->assertSame(['SCH-A-MON', 'SCH-B-TUE'], $scope['schedule_ids']);
-        $this->assertSame(['CLS-A', 'CLS-B', 'CLS-HOMEROOM-ONLY'], $scope['class_ids']);
+        $this->assertSame(['CLS-HOMEROOM-ONLY'], $scope['class_ids']);
+        $this->assertSame(['CLS-HOMEROOM-ONLY'], $scope['managed_class_ids']);
         $this->assertSame(['CLS-A', 'CLS-B'], $scope['teaching_class_ids']);
-        $this->assertEqualsCanonicalizing(['STU-A', 'STU-B', 'STU-B2', 'STU-H'], $scope['student_ids']);
+        $this->assertEqualsCanonicalizing(['STU-A', 'STU-B', 'STU-H'], $scope['student_ids']);
+        $this->assertSame(['STU-H'], $scope['managed_student_ids']);
+        $this->assertEqualsCanonicalizing(['STU-A', 'STU-B'], $scope['teaching_student_ids']);
         $this->assertSame(['STU-A'], $scope['schedule_student_ids']['SCH-A-MON']);
-        $this->assertEqualsCanonicalizing(['STU-B', 'STU-B2'], $scope['schedule_student_ids']['SCH-B-TUE']);
+        $this->assertSame(['STU-B'], $scope['schedule_student_ids']['SCH-B-TUE']);
 
         $this->assertNotContains('CLS-C', $scope['class_ids']);
         $this->assertNotContains('STU-C', $scope['student_ids']);
         $this->assertNotContains('STU-INACTIVE', $scope['student_ids']);
         $this->assertNotContains('STU-H', $scope['students_by_class']['CLS-B']);
+        $this->assertNotContains('STU-B2', $scope['student_ids']);
     }
 
     public function test_teacher_assessment_schedule_labels_are_unique_and_human_readable(): void
@@ -94,8 +97,6 @@ class TeacherDataScopeHardeningTest extends TestCase
         $schedules = $this->mockRepo(ScheduleRepositoryInterface::class, $this->schedules());
         $classes = $this->mockRepo(ClassRepositoryInterface::class, $this->classes());
         $students = $this->mockRepo(StudentRepositoryInterface::class, $this->students());
-        $enrollments = $this->mockRepo(ClassEnrollmentRepositoryInterface::class, $this->enrollments());
-
         $assessments = \Mockery::mock(AssessmentRepositoryInterface::class);
         $assessments->shouldReceive('getAll')->zeroOrMoreTimes()->andReturn(collect([
             ['Assessment_ID' => 'ASM-OWN', 'Teacher_ID' => 'TCH-A'],
@@ -105,7 +106,7 @@ class TeacherDataScopeHardeningTest extends TestCase
             ['Assessment_ID' => 'ASM-FOREIGN-SCHEDULE', 'Schedule_ID' => 'SCH-C-MON'],
         ]));
 
-        return new TeacherScopeResolver($teachers, $schedules, $classes, $students, $enrollments, $assessments);
+        return new TeacherScopeResolver($teachers, $schedules, $classes, $students, $assessments);
     }
 
     private function mockRepo(string $interface, array $rows)

@@ -2,8 +2,8 @@
 
 namespace App\Support\Academic;
 
+use App\Helpers\SheetValue;
 use App\Interfaces\GoogleSheets\AssessmentRepositoryInterface;
-use App\Interfaces\GoogleSheets\ClassEnrollmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
@@ -16,29 +16,47 @@ class TeacherScopeResolver
         private ScheduleRepositoryInterface $scheduleRepository,
         private ClassRepositoryInterface $classRepository,
         private StudentRepositoryInterface $studentRepository,
-        private ClassEnrollmentRepositoryInterface $classEnrollmentRepository,
-        private AssessmentRepositoryInterface $assessmentRepository
+        private AssessmentRepositoryInterface $assessmentRepository,
+        private ?TeacherIdentityResolver $teacherIdentityResolver = null
     ) {}
 
     public function resolveForUser($user): array
     {
-        $userId = trim((string) ($user->User_ID ?? ''));
-        if ($userId === '') {
+        $identity = $this->identityResolver()->resolveForUser($user);
+        if ($identity === null) {
             return $this->emptyScope();
         }
 
-        $teacher = collect($this->teacherRepository->fetchAll())
-            ->firstWhere('User_ID', $userId);
+        $identityTeacherKey = 'teacher_identity_'.hash('sha256', $identity['teacher_id']);
+        if (function_exists('request')) {
+            request()->attributes->set($identityTeacherKey, $identity['teacher']);
+        }
+        $scope = $this->resolveForTeacherId($identity['teacher_id']);
+        $scope['identity'] = $identity;
 
-        return $this->resolveForTeacherId(trim((string) ($teacher['Teacher_ID'] ?? '')));
+        return $scope;
     }
 
     public function resolveForTeacherId(string $teacherId): array
     {
         $teacherId = trim($teacherId);
-        if ($teacherId === '') {
+        $teacherKey = SheetValue::id($teacherId);
+        $identityTeacherKey = 'teacher_identity_'.hash('sha256', $teacherId);
+        $teacher = function_exists('request') && request()->attributes->has($identityTeacherKey)
+            ? (array) request()->attributes->get($identityTeacherKey)
+            : null;
+        if ($teacher === null) {
+            $teacherMatches = collect($this->teacherRepository->fetchAll())
+                ->map(fn ($row) => (array) $row)
+                ->filter(fn ($row) => SheetValue::id($row['Teacher_ID'] ?? '') === $teacherKey)
+                ->filter(fn ($row) => ! $this->isInactive($row))
+                ->values();
+            $teacher = $teacherMatches->count() === 1 ? $teacherMatches->first() : null;
+        }
+        if ($teacher === null) {
             return $this->emptyScope();
         }
+        $teacherId = trim((string) $teacher['Teacher_ID']);
 
         $scopeKey = 'teacher_scope_'.hash('sha256', $teacherId);
         if (function_exists('request') && request()->attributes->has($scopeKey)) {
@@ -58,41 +76,20 @@ class TeacherScopeResolver
         $allClasses = collect($this->classRepository->fetchAll())
             ->filter(fn ($row) => ! $this->isInactive($row))
             ->values();
-        $classIds = TeacherClassAssignmentResolver::managedClassIds($allClasses, $teacherSchedules, $teacherId);
-        $classes = $allClasses
-            ->filter(fn ($row) => in_array(trim((string) ($row['Class_ID'] ?? '')), $classIds, true))
-            ->values();
+        $classIds = TeacherClassAssignmentResolver::managedClassIds($allClasses, $teacherId);
         $rosterClassIds = array_values(array_unique(array_merge($classIds, $teachingClassIds)));
+        $classes = $allClasses
+            ->filter(fn ($row) => in_array(trim((string) ($row['Class_ID'] ?? '')), $rosterClassIds, true))
+            ->values();
 
         $students = collect($this->studentRepository->fetchAll())
             ->filter(fn ($row) => ! $this->isInactive($row))
             ->values();
-        $enrollments = collect($this->classEnrollmentRepository->fetchAll())
-            ->filter(fn ($row) => ! $this->isInactive($row))
-            ->values();
-
         $studentsByClass = [];
-        $studentsWithCurrentClass = [];
         foreach ($students as $student) {
             $classId = trim((string) ($student['Class_ID'] ?? ''));
             $studentId = trim((string) ($student['Student_ID'] ?? ''));
-            if ($classId !== '' && $studentId !== '') {
-                $studentsWithCurrentClass[$studentId] = true;
-            }
             if ($classId !== '' && $studentId !== '' && in_array($classId, $rosterClassIds, true)) {
-                $studentsByClass[$classId][] = $studentId;
-            }
-        }
-
-        // MASTER_STUDENT.Class_ID is the current placement source. Enrollment
-        // rows are a legacy/history fallback only when the student has no
-        // current class, preventing a moved student from appearing twice.
-        foreach ($enrollments as $enrollment) {
-            $classId = trim((string) ($enrollment['Class_ID'] ?? ''));
-            $studentId = trim((string) ($enrollment['Student_ID'] ?? ''));
-            if ($classId !== '' && $studentId !== ''
-                && ! isset($studentsWithCurrentClass[$studentId])
-                && in_array($classId, $rosterClassIds, true)) {
                 $studentsByClass[$classId][] = $studentId;
             }
         }
@@ -101,6 +98,10 @@ class TeacherScopeResolver
             ->map(fn ($ids) => array_values(array_unique(array_filter(array_map('trim', $ids)))))
             ->all();
         $studentIds = array_values(array_unique(array_merge(...array_values($studentsByClass ?: [[]]))));
+        $managedStudentsByClass = array_intersect_key($studentsByClass, array_flip($classIds));
+        $teachingStudentsByClass = array_intersect_key($studentsByClass, array_flip($teachingClassIds));
+        $managedStudentIds = array_values(array_unique(array_merge(...array_values($managedStudentsByClass ?: [[]]))));
+        $teachingStudentIds = array_values(array_unique(array_merge(...array_values($teachingStudentsByClass ?: [[]]))));
 
         $scheduleStudentIds = [];
         foreach ($teacherSchedules as $schedule) {
@@ -113,7 +114,7 @@ class TeacherScopeResolver
 
         $assessments = collect($this->assessmentRepository->getAll());
         $assessmentIds = $assessments
-            ->filter(function ($row) use ($teacherId, $classIds, $teachingClassIds, $scheduleIds) {
+            ->filter(function ($row) use ($teacherId, $teachingClassIds, $scheduleIds) {
                 $rowTeacher = trim((string) ($row['Teacher_ID'] ?? ''));
                 if ($rowTeacher !== '') {
                     return $rowTeacher === $teacherId;
@@ -122,7 +123,7 @@ class TeacherScopeResolver
                 $classId = trim((string) ($row['Class_ID'] ?? ''));
                 $scheduleId = trim((string) ($row['Schedule_ID'] ?? ''));
 
-                return ($classId !== '' && in_array($classId, array_values(array_unique(array_merge($classIds, $teachingClassIds))), true))
+                return ($classId !== '' && in_array($classId, $teachingClassIds, true))
                     || ($scheduleId !== '' && in_array($scheduleId, $scheduleIds, true));
             })
             ->pluck('Assessment_ID')
@@ -140,11 +141,16 @@ class TeacherScopeResolver
             'teaching_class_ids' => $teachingClassIds,
             'subject_ids' => $subjectIds,
             'student_ids' => $studentIds,
+            'managed_student_ids' => $managedStudentIds,
+            'teaching_student_ids' => $teachingStudentIds,
             'assessment_ids' => $assessmentIds,
             'students_by_class' => $studentsByClass,
+            'managed_students_by_class' => $managedStudentsByClass,
+            'teaching_students_by_class' => $teachingStudentsByClass,
             'schedule_student_ids' => $scheduleStudentIds,
             'schedules' => $teacherSchedules,
             'classes' => $classes,
+            'managed_classes' => $classes->filter(fn ($row) => in_array(trim((string) ($row['Class_ID'] ?? '')), $classIds, true))->values(),
             'students' => $students->whereIn('Student_ID', $studentIds)->values(),
         ];
 
@@ -157,7 +163,17 @@ class TeacherScopeResolver
 
     public function classAllowed(array $scope, string $classId): bool
     {
-        return in_array(trim($classId), $scope['class_ids'] ?? [], true);
+        return $this->managedClassAllowed($scope, $classId);
+    }
+
+    public function managedClassAllowed(array $scope, string $classId): bool
+    {
+        return in_array(trim($classId), $scope['managed_class_ids'] ?? [], true);
+    }
+
+    public function teachingClassAllowed(array $scope, string $classId): bool
+    {
+        return in_array(trim($classId), $scope['teaching_class_ids'] ?? [], true);
     }
 
     public function scheduleAllowed(array $scope, string $scheduleId): bool
@@ -185,28 +201,27 @@ class TeacherScopeResolver
             'teaching_class_ids' => [],
             'subject_ids' => [],
             'student_ids' => [],
+            'managed_student_ids' => [],
+            'teaching_student_ids' => [],
             'assessment_ids' => [],
             'students_by_class' => [],
+            'managed_students_by_class' => [],
+            'teaching_students_by_class' => [],
             'schedule_student_ids' => [],
             'schedules' => collect(),
             'classes' => collect(),
+            'managed_classes' => collect(),
             'students' => collect(),
         ];
     }
 
     private function isInactive($row): bool
     {
-        $row = is_array($row) ? $row : (array) $row;
-        foreach (['Is_Active', 'Status', 'Enrollment_Status'] as $field) {
-            $value = strtoupper(trim((string) ($row[$field] ?? '')));
-            if ($field === 'Enrollment_Status' && $value === 'ALUMNI') {
-                return true;
-            }
-            if (in_array($value, ['FALSE', 'INACTIVE', 'NONACTIVE', 'NON_ACTIVE', 'CANCELLED', 'DROPPED', 'ARCHIVED'], true)) {
-                return true;
-            }
-        }
+        return SheetValue::isInactive(is_array($row) ? $row : (array) $row);
+    }
 
-        return false;
+    private function identityResolver(): TeacherIdentityResolver
+    {
+        return $this->teacherIdentityResolver ?? app(TeacherIdentityResolver::class);
     }
 }

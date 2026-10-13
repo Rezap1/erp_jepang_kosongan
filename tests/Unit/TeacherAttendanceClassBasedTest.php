@@ -2,27 +2,29 @@
 
 namespace Tests\Unit;
 
+use App\Http\Controllers\Academic\TeacherWorkspaceController;
 use App\Interfaces\GoogleSheets\AttendanceRepositoryInterface;
-use App\Services\Academic\AttendanceService;
 use App\Services\Academic\AssessmentConfigService;
 use App\Services\Academic\AssessmentService;
+use App\Services\Academic\AttendanceService;
 use App\Services\Academic\ScheduleService;
 use App\Services\Academic\ScoreService;
+use App\Services\Academic\SubjectService;
 use App\Services\Attendance\AttendanceRequestService;
 use App\Services\Core\ActivityLogService;
 use App\Services\Core\AssignmentService;
 use App\Services\Core\BatchService;
 use App\Services\Core\ClassService;
+use App\Services\Core\EnterpriseEventService;
+use App\Services\Core\NotificationService;
 use App\Services\Core\StudentService;
 use App\Services\Core\TeacherService;
-use App\Services\Academic\SubjectService;
-use App\Services\Core\NotificationService;
 use App\Services\Dashboard\TeacherDashboardService;
-use App\Http\Controllers\Academic\TeacherWorkspaceController;
-use App\Services\Core\EnterpriseEventService;
+use App\Support\Academic\TeacherScopeResolver;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Http\Request;
 use Mockery;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class TeacherAttendanceClassBasedTest extends TestCase
@@ -75,7 +77,7 @@ class TeacherAttendanceClassBasedTest extends TestCase
 
     public function test_teacher_class_filter_cannot_escape_owned_classes(): void
     {
-        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->expectException(HttpException::class);
         $this->expectExceptionMessage('Anda tidak memiliki akses ke kelas ini.');
 
         $this->teacherGroups([
@@ -294,7 +296,8 @@ class TeacherAttendanceClassBasedTest extends TestCase
             Mockery::mock(BatchService::class),
             Mockery::mock(AssignmentService::class),
             Mockery::mock(ScoreService::class),
-            Mockery::mock(AssessmentConfigService::class)
+            Mockery::mock(AssessmentConfigService::class),
+            $this->workspaceScopeResolver()
         );
     }
 
@@ -304,12 +307,23 @@ class TeacherAttendanceClassBasedTest extends TestCase
         $day = date('l');
 
         $attendanceRows = array_is_list($attendance) ? $attendance : [$attendance];
+        $scopeResolver = Mockery::mock(TeacherScopeResolver::class);
+        $scopeResolver->shouldReceive('resolveForUser')->once()->andReturn([
+            'teacher_id' => 'T1',
+            'identity' => ['employee_id' => '', 'teacher' => ['Teacher_ID' => 'T1']],
+            'schedules' => collect([
+                ['Schedule_ID' => 'SCHEDULE-A', 'Teacher_ID' => 'T1', 'Class_ID' => 'CLASS-A', 'Day' => $day],
+            ]),
+            'managed_class_ids' => ['CLASS-A'],
+            'managed_student_ids' => ['STU-A'],
+            'managed_classes' => collect([['Class_ID' => 'CLASS-A', 'Class_Name' => 'Kelas A']]),
+        ]);
 
         $service = new TeacherDashboardService(
             Mockery::mock(ScheduleService::class)->shouldReceive('getAll')->andReturn(collect([
                 ['Schedule_ID' => 'SCHEDULE-A', 'Teacher_ID' => 'T1', 'Class_ID' => 'CLASS-A', 'Day' => $day],
             ]))->getMock(),
-            Mockery::mock(\App\Services\Academic\AttendanceService::class)->shouldReceive('getAll')->andReturn(collect($attendanceRows))->getMock(),
+            Mockery::mock(AttendanceService::class)->shouldReceive('getAll')->andReturn(collect($attendanceRows))->getMock(),
             Mockery::mock(AssessmentService::class)->shouldReceive('getAll')->andReturn(collect())->getMock(),
             Mockery::mock(ScoreService::class)->shouldReceive('getAll')->andReturn(collect())->getMock(),
             Mockery::mock(TeacherService::class)->shouldReceive('getAllTeachers')->andReturn(collect([
@@ -320,7 +334,8 @@ class TeacherAttendanceClassBasedTest extends TestCase
             ]))->getMock(),
             Mockery::mock(ClassService::class)->shouldReceive('getAllClasses')->andReturn(collect())->getMock(),
             Mockery::mock(ActivityLogService::class)->shouldReceive('getAllLogs')->andReturn(collect())->getMock(),
-            Mockery::mock(NotificationService::class)->shouldReceive('UnreadCount')->andReturn(0)->getMock()
+            Mockery::mock(NotificationService::class)->shouldReceive('UnreadCount')->andReturn(0)->getMock(),
+            $scopeResolver
         );
 
         return $service->getDashboardData();
@@ -329,7 +344,7 @@ class TeacherAttendanceClassBasedTest extends TestCase
     private function attendance(string $studentId, string $classId, string $type, string $status, string $scheduleId = ''): array
     {
         return [
-            'Attendance_ID' => 'ATT-' . $studentId,
+            'Attendance_ID' => 'ATT-'.$studentId,
             'Student_ID' => $studentId,
             'Class_ID' => $classId,
             'Schedule_ID' => $scheduleId,
@@ -363,5 +378,34 @@ class TeacherAttendanceClassBasedTest extends TestCase
             ['Student_ID' => 'STU-C', 'Full_Name' => 'Citra', 'Class_ID' => 'CLASS-A', 'Is_Active' => 'TRUE'],
             ['Student_ID' => 'STU-B', 'Full_Name' => 'Budi', 'Class_ID' => 'CLASS-B', 'Is_Active' => 'TRUE'],
         ];
+    }
+
+    private function workspaceScopeResolver(): TeacherScopeResolver
+    {
+        $scope = [
+            'teacher_id' => 'T1',
+            'schedule_ids' => ['SCHEDULE-A'],
+            'class_ids' => ['CLASS-A'],
+            'managed_class_ids' => ['CLASS-A'],
+            'teaching_class_ids' => ['CLASS-A'],
+            'subject_ids' => [],
+            'student_ids' => ['STU-A', 'STU-C'],
+            'managed_student_ids' => ['STU-A', 'STU-C'],
+            'teaching_student_ids' => ['STU-A', 'STU-C'],
+            'assessment_ids' => [],
+            'students_by_class' => ['CLASS-A' => ['STU-A', 'STU-C']],
+            'managed_students_by_class' => ['CLASS-A' => ['STU-A', 'STU-C']],
+            'teaching_students_by_class' => ['CLASS-A' => ['STU-A', 'STU-C']],
+            'schedule_student_ids' => ['SCHEDULE-A' => ['STU-A', 'STU-C']],
+            'schedules' => collect([$this->schedules()[0]]),
+            'classes' => collect([$this->classes()[0]]),
+            'managed_classes' => collect([$this->classes()[0]]),
+            'students' => collect([$this->students()[0], $this->students()[1]]),
+        ];
+        $resolver = Mockery::mock(TeacherScopeResolver::class);
+        $resolver->shouldReceive('resolveForUser')->zeroOrMoreTimes()->andReturn($scope);
+        $resolver->shouldReceive('resolveForTeacherId')->zeroOrMoreTimes()->with('T1')->andReturn($scope);
+
+        return $resolver;
     }
 }

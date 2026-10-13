@@ -16,6 +16,7 @@ use App\Services\Core\StudentService;
 use App\Services\Core\TeacherService;
 use App\Services\Dashboard\AcademicDashboardService;
 use App\Services\Dashboard\TeacherDashboardService;
+use App\Support\Academic\TeacherScopeResolver;
 use Illuminate\Auth\GenericUser;
 use Mockery;
 use Tests\TestCase;
@@ -60,6 +61,17 @@ class DashboardScorePendingTest extends TestCase
     public function test_teacher_dashboard_uses_assessment_ids_for_score_activity_scope(): void
     {
         $this->actingAs(new GenericUser(['id' => 'USR-TCH', 'User_ID' => 'USR-TCH', 'Role' => 'TEACHER']));
+        $scopeResolver = Mockery::mock(TeacherScopeResolver::class);
+        $scopeResolver->shouldReceive('resolveForUser')->once()->andReturn([
+            'teacher_id' => 'TCH-1',
+            'identity' => ['employee_id' => '', 'teacher' => ['Teacher_ID' => 'TCH-1']],
+            'schedules' => collect([
+                ['Schedule_ID' => 'SCH-1', 'Teacher_ID' => 'TCH-1', 'Class_ID' => 'CLS-1', 'Day' => date('l')],
+            ]),
+            'managed_class_ids' => ['CLS-1'],
+            'managed_student_ids' => ['STU-1', 'STU-2'],
+            'managed_classes' => collect([['Class_ID' => 'CLS-1']]),
+        ]);
 
         $service = new TeacherDashboardService(
             $this->mockService(ScheduleService::class, ['getAll' => collect([
@@ -83,7 +95,8 @@ class DashboardScorePendingTest extends TestCase
             $this->mockService(ActivityLogService::class, ['getAllLogs' => collect([
                 ['Module' => 'SCORE', 'Action' => 'CREATE', 'Reference_ID' => 'SCR-1', 'Created_At' => now()->toDateTimeString()],
             ])]),
-            $this->mockService(NotificationService::class, ['UnreadCount' => 0])
+            $this->mockService(NotificationService::class, ['UnreadCount' => 0]),
+            $scopeResolver
         );
 
         $data = $service->getDashboardData();

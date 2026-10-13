@@ -15,6 +15,7 @@ use App\Services\Core\BatchService;
 use App\Services\Core\ClassService;
 use App\Services\Core\StudentService;
 use App\Services\Core\TeacherService;
+use App\Support\Academic\TeacherScopeResolver;
 use Illuminate\Auth\GenericUser;
 use Mockery;
 use Tests\TestCase;
@@ -69,6 +70,18 @@ class TeacherWorkspaceScoreScopeTest extends TestCase
         $assessmentConfig = $this->mockService(AssessmentConfigService::class, [
             'getActiveCategories' => [],
         ]);
+        $scope = [
+            'teacher_id' => 'TCH-A',
+            'schedule_ids' => ['SCH-A'],
+            'managed_class_ids' => ['CLS-A'],
+            'teaching_class_ids' => ['CLS-A'],
+            'student_ids' => ['STU-1', 'STU-2'],
+            'assessment_ids' => ['ASM-A'],
+            'schedule_student_ids' => ['SCH-A' => ['STU-1', 'STU-2']],
+        ];
+        $scopeResolver = Mockery::mock(TeacherScopeResolver::class);
+        $scopeResolver->shouldReceive('resolveForUser')->zeroOrMoreTimes()->andReturn($scope);
+        $scopeResolver->shouldReceive('resolveForTeacherId')->zeroOrMoreTimes()->with('TCH-A')->andReturn($scope);
 
         $controller = new TeacherWorkspaceController(
             $this->mockService(TeacherService::class, ['getAllTeachers' => collect([
@@ -86,7 +99,8 @@ class TeacherWorkspaceScoreScopeTest extends TestCase
             $this->mockService(BatchService::class, []),
             $this->mockService(AssignmentService::class, []),
             $scoreService,
-            $assessmentConfig
+            $assessmentConfig,
+            $scopeResolver
         );
 
         $view = $controller->scores();

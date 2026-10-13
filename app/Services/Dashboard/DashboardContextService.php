@@ -1,18 +1,20 @@
 <?php
+
 namespace App\Services\Dashboard;
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
-use App\Support\Presentation\IndonesianPresentation;
-use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
-use App\Interfaces\GoogleSheets\EmployeeRepositoryInterface;
-use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
 use App\Interfaces\GoogleSheets\BatchRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
-use App\Interfaces\GoogleSheets\ProgramRepositoryInterface;
 use App\Interfaces\GoogleSheets\DepartmentRepositoryInterface;
+use App\Interfaces\GoogleSheets\EmployeeRepositoryInterface;
 use App\Interfaces\GoogleSheets\PositionRepositoryInterface;
+use App\Interfaces\GoogleSheets\ProgramRepositoryInterface;
+use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
+use App\Services\Core\RoleService;
+use App\Support\Academic\TeacherIdentityResolver;
+use App\Support\Presentation\IndonesianPresentation;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardContextService
 {
@@ -38,49 +40,49 @@ class DashboardContextService
         $dateFormatted = IndonesianPresentation::date($now, 'l, j F Y');
 
         $user = Auth::user();
-        if (!$user) {
+        if (! $user) {
             return [
-                'time'          => $now->format('H:i:s'),
-                'date'          => $dateFormatted,
-                'greeting'      => $greeting,
+                'time' => $now->format('H:i:s'),
+                'date' => $dateFormatted,
+                'greeting' => $greeting,
                 'greeting_icon' => $greeting_icon,
-                'timezone'      => 'Asia/Jakarta',
-                'user_name'     => 'Tamu',
-                'username'      => 'anonim',
-                'role'          => 'GUEST',
-                'user_id'       => null,
-                'timestamp'     => $now->timestamp,
+                'timezone' => 'Asia/Jakarta',
+                'user_name' => 'Tamu',
+                'username' => 'anonim',
+                'role' => 'GUEST',
+                'user_id' => null,
+                'timestamp' => $now->timestamp,
             ];
         }
 
         $dynamicContext = [
-            'time'          => $now->format('H:i:s'),
-            'date'          => $dateFormatted,
-            'greeting'      => $greeting,
+            'time' => $now->format('H:i:s'),
+            'date' => $dateFormatted,
+            'greeting' => $greeting,
             'greeting_icon' => $greeting_icon,
-            'timezone'      => 'Asia/Jakarta',
-            'timestamp'     => $now->timestamp,
+            'timezone' => 'Asia/Jakarta',
+            'timestamp' => $now->timestamp,
         ];
 
         $userId = $user->User_ID ?? 'unknown';
         $roleId = $user->Role_ID ?? 'none';
         $updatedAt = $user->Updated_At ?? $user->updated_at ?? '';
-        $cacheKey = "dashboard_context_user_{$userId}_{$roleId}_" . md5((string) $updatedAt);
+        $cacheKey = "dashboard_context_user_{$userId}_{$roleId}_".md5((string) $updatedAt);
         $ttl = (int) config('cache.wms.reference', 300);
 
         $staticContext = Cache::remember($cacheKey, $ttl, function () use ($user) {
             $roleName = 'USER';
             if (isset($user->Role_ID)) {
-                $roleService = app(\App\Services\Core\RoleService::class);
+                $roleService = app(RoleService::class);
                 $roleData = $roleService->getRoleById($user->Role_ID);
                 $roleName = $roleData['Role_Name'] ?? $user->Role ?? 'USER';
             }
 
             $context = [
-                'user_name'     => $user->Full_Name ?? 'Pengguna tidak dikenal',
-                'username'      => $user->Username ?? 'unknown',
-                'role'          => strtoupper($roleName),
-                'user_id'       => $user->User_ID ?? null,
+                'user_name' => $user->Full_Name ?? 'Pengguna tidak dikenal',
+                'username' => $user->Username ?? 'unknown',
+                'role' => strtoupper($roleName),
+                'user_id' => $user->User_ID ?? null,
             ];
 
             // Enrich context based on Role
@@ -104,14 +106,6 @@ class DashboardContextService
                     $class = collect($classRepo->fetchAll())->firstWhere('Class_ID', $student['Class_ID'] ?? '');
                     $context['class'] = $class['Class_Name'] ?? $student['Class_ID'] ?? null;
                 }
-            } elseif (strcasecmp($context['role'], 'TEACHER') === 0) {
-                $teacherRepo = app(TeacherRepositoryInterface::class);
-                $teachers = $teacherRepo->fetchAll();
-                $teacher = collect($teachers)->firstWhere('User_ID', $context['user_id']);
-                if ($teacher) {
-                    $context['teacher_id'] = $teacher['Teacher_ID'] ?? null;
-                    $context['teacher_name'] = $teacher['Full_Name'] ?? $context['user_name'];
-                }
             } elseif (in_array(strtoupper($context['role']), ['HR', 'FINANCE', 'MARKETING', 'ACADEMIC', 'DIRECTOR', 'ADMINISTRATOR'])) {
                 $employeeRepo = app(EmployeeRepositoryInterface::class);
                 $employees = $employeeRepo->fetchAll();
@@ -131,6 +125,18 @@ class DashboardContextService
 
             return $context;
         });
+
+        // Teacher identity is deliberately resolved outside the persistent
+        // context cache so master-data relationship changes apply on the next
+        // request and stale direct User_ID mappings cannot survive in cache.
+        if (strcasecmp((string) ($staticContext['role'] ?? ''), 'TEACHER') === 0) {
+            unset($staticContext['teacher_id'], $staticContext['teacher_name']);
+            $identity = app(TeacherIdentityResolver::class)->resolveForUser($user);
+            if ($identity !== null) {
+                $staticContext['teacher_id'] = $identity['teacher_id'];
+                $staticContext['teacher_name'] = $identity['teacher']['Full_Name'] ?? $staticContext['user_name'];
+            }
+        }
 
         return array_merge($staticContext, $dynamicContext);
     }

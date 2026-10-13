@@ -6,12 +6,14 @@ use App\Interfaces\GoogleSheets\AssessmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\AssignmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassEnrollmentRepositoryInterface;
 use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
+use App\Interfaces\GoogleSheets\EmployeeRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScoreRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Interfaces\GoogleSheets\SubjectRepositoryInterface;
 use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
 use App\Services\Core\GlobalSearchService;
+use Illuminate\Auth\GenericUser;
 use Illuminate\Support\Facades\Cache;
 use Mockery;
 use Tests\TestCase;
@@ -23,18 +25,19 @@ class GlobalSearchTeacherScopeTest extends TestCase
         parent::setUp();
         Cache::flush();
         $this->bindTeacherScopeRepositories();
+        $this->actingAs(new GenericUser(['User_ID' => 'USR-TCH-A', 'id' => 'USR-TCH-A']));
     }
 
     public function test_teacher_search_does_not_leak_other_teacher_scores_or_assignments_in_same_class(): void
     {
-        $results = (new GlobalSearchService())->search('OtherTeacherSecret', 'TEACHER', 'USR-TCH-A');
+        $results = (new GlobalSearchService)->search('OtherTeacherSecret', 'TEACHER', 'USR-TCH-A');
 
         $this->assertSame([], $results);
     }
 
     public function test_teacher_search_keeps_own_scores_and_assignments_visible(): void
     {
-        $results = (new GlobalSearchService())->search('MineVisible', 'TEACHER', 'USR-TCH-A');
+        $results = (new GlobalSearchService)->search('MineVisible', 'TEACHER', 'USR-TCH-A');
 
         $this->assertArrayHasKey('Nilai Kelas Saya', $results);
         $this->assertArrayHasKey('Tugas Kelas Saya', $results);
@@ -49,6 +52,10 @@ class GlobalSearchTeacherScopeTest extends TestCase
             ['Teacher_ID' => 'TCH-A', 'User_ID' => 'USR-TCH-A'],
         ]));
         $this->app->instance(TeacherRepositoryInterface::class, $teacherRepository);
+
+        $employeeRepository = Mockery::mock(EmployeeRepositoryInterface::class);
+        $employeeRepository->shouldReceive('fetchAll')->andReturn(collect());
+        $this->app->instance(EmployeeRepositoryInterface::class, $employeeRepository);
 
         $scheduleRepository = Mockery::mock(ScheduleRepositoryInterface::class);
         $scheduleRepository->shouldReceive('fetchAll')->andReturn(collect([
