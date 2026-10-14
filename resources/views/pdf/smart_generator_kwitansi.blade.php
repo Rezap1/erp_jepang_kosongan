@@ -211,16 +211,16 @@
             </td>
             @endif
             <td class="header-details">
-                <div class="company-name">{{ $data['company_name'] ?? 'PT WAKAMIYA MANDIRI SEJAHTERA' }}</div>
+                <div class="company-name">{{ $data['company_name'] ?? config('branding.organization.name') }}</div>
                 <div class="company-tagline">{{ $data['company_tagline'] ?? 'Growing Together With Integrity' }}</div>
                 <div class="company-contact">
-                    {{ $data['company_address'] ?? 'Perum Graha Samolo Indah Blok B1 No 22 Desa Babakan Caringin, Karang Tengah,Cianjur' }}<br>
-                    Telp: {{ $data['company_phone'] ?? '0813-1811-5151' }} | Email: {{ $data['company_email'] ?? 'lpkwakamiya01@gmail.com' }}
+                    {{ $data['company_address'] ?? config('branding.organization.address') }}<br>
+                    Telp: {{ $data['company_phone'] ?? config('branding.organization.phone') }} | Email: {{ $data['company_email'] ?? config('branding.organization.email') }}
                 </div>
             </td>
             <td class="company-npwp">
                 NPWP USAHA<br>
-                <span style="font-size: 10.5px; color: #0f172a;">{{ $data['company_npwp'] ?? '1000000003150626' }}</span>
+                <span style="font-size: 10.5px; color: #0f172a;">{{ $data['company_npwp'] ?? config('branding.organization.npwp') }}</span>
             </td>
         </tr>
     </table>
@@ -277,7 +277,7 @@
             <td style="text-align: right; vertical-align: top;">
                 <div class="signature-box">
                     <div style="font-size: 10px; color: #334155; font-weight: 700;">
-                        {{ $data['issue_city'] ?? 'Cianjur' }}, {{ isset($data['issue_date']) ? date('Y-m-d', strtotime($data['issue_date'])) : '2026-08-04' }}
+                        {{ $data['issue_city'] ?? config('branding.document.issue_city') }}, {{ isset($data['issue_date']) ? date('Y-m-d', strtotime($data['issue_date'])) : now()->toDateString() }}
                     </div>
                     <div class="signature-img-container">
                         @if(!empty($data['stamp']))
@@ -288,10 +288,10 @@
                         @endif
                     </div>
                     <div style="font-weight: 900; color: #0f172a; font-size: 11px; border-bottom: 1.5px solid #0f172a; display: inline-block; padding-bottom: 1px;">
-                        {{ $data['signer_name'] ?? 'Helmi Maulana' }}
+                        {{ $data['signer_name'] ?? config('branding.document.signer_name') }}
                     </div>
                     <div style="font-size: 9.5px; color: #334155; font-weight: 700; margin-top: 2px;">
-                        {{ $data['company_name'] ?? 'PT WAKAMIYA MANDIRI SEJAHTERA' }}
+                        {{ $data['company_name'] ?? config('branding.organization.name') }}
                     </div>
                 </div>
             </td>
@@ -300,7 +300,7 @@
 
     <!-- WATERMARK FOOTER -->
     <div class="footer-watermark">
-        Dokumen resmi diterbitkan secara sah oleh komputer {{ $data['company_name'] ?? 'PT WAKAMIYA MANDIRI SEJAHTERA' }}.
+        Dokumen resmi diterbitkan secara sah oleh komputer {{ $data['company_name'] ?? config('branding.organization.name') }}.
     </div>
 
 </body>

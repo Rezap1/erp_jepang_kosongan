@@ -193,7 +193,7 @@
         'document' => $document ?? $companyProfile['document'] ?? [],
         'verificationUrl' => $verificationUrl ?? null,
         'qrCodeSvg' => $qrCodeSvg ?? null,
-        'notice' => 'Dokumen ini diterbitkan secara elektronik oleh ' . ($company['name'] ?? 'Wakamiya Management System (WMS)') . ' dan memiliki kekuatan verifikasi sah.'
+        'notice' => 'Dokumen ini diterbitkan secara elektronik oleh ' . ($company['name'] ?? config('branding.application.name')) . ' dan memiliki kekuatan verifikasi sah.'
     ])
 
 </body>

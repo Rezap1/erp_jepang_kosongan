@@ -324,7 +324,7 @@ class AttendanceReportServiceTest extends TestCase
         ]);
 
         $html = view('pdf.attendance_report', compact('report'))->render();
-        $this->assertStringContainsString('LPK WAKAMIYA', $html);
+        $this->assertStringContainsString(config('branding.application.short_name'), $html);
         $this->assertStringContainsString('Kelas A', $html);
         $this->assertStringContainsString('September 2026', $html);
         $this->assertStringContainsString('Rekap Per Siswa', $html);

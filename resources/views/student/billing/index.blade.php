@@ -21,7 +21,7 @@
                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Rekening Pembayaran Resmi</p>
                 <p class="text-xs text-slate-500 font-medium">{{ $bank['name'] ?? 'BANK BCA' }}</p>
                 <p class="text-lg font-black text-slate-800 tracking-wider mt-0.5 break-all" id="accountNumber">{{ $bank['account_number'] ?? '888-999-777' }}</p>
-                <p class="text-[11px] font-bold text-slate-400 break-words">a.n. {{ $bank['account_holder'] ?? 'PT WAKAMIYA INDONESIA' }}</p>
+                <p class="text-[11px] font-bold text-slate-400 break-words">a.n. {{ $bank['account_holder'] ?? config('branding.bank.account_holder') }}</p>
             </div>
             <button onclick="copyAccountNumber()" class="p-3 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer border border-emerald-100 shadow-xs flex shrink-0 flex-col items-center">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>

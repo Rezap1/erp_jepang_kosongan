@@ -52,7 +52,7 @@
             <div class="space-y-2">
                 <h3 class="text-xl font-black text-slate-900">Verifikasi Lokasi</h3>
                 <p class="text-xs text-slate-500 font-medium max-w-xs mx-auto">
-                    Mendeteksi lokasi Anda. Pastikan Anda berada di area LPK WAKAMIYA.
+                    Mendeteksi lokasi Anda. Pastikan Anda berada di area LPK.
                 </p>
                 @if(($type ?? '') === 'STUDENT')
                     <p class="text-xs text-sky-700 font-bold">Jam absensi: {{ $attendanceWindowLabel }}</p>
@@ -97,7 +97,7 @@
                 <h4 class="text-[11px] font-black text-slate-800 border-b border-slate-200 pb-2">Detail Presensi</h4>
                 <div class="flex justify-between border-b border-slate-200/60 pb-2">
                     <span class="text-slate-500">Lokasi</span>
-                    <span class="font-bold text-slate-800">LPK WAKAMIYA</span>
+                    <span class="font-bold text-slate-800">{{ $companyProfile['company']['name'] ?? $brand['organization']['name'] }}</span>
                 </div>
                 <div class="flex justify-between border-b border-slate-200/60 pb-2">
                     <span class="text-slate-500">Jarak Lokasi</span>

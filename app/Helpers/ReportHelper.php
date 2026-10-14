@@ -102,7 +102,7 @@ class ReportHelper
         $dompdf = $pdf->getDomPDF();
         $dompdf->addInfo('Title', $data['reportTitle']);
         $dompdf->addInfo('Author', $data['generatedBy']);
-        $dompdf->addInfo('Creator', 'WAKAMIYA MANAGEMENT SYSTEM');
+        $dompdf->addInfo('Creator', config('branding.application.name'));
         $dompdf->addInfo('Subject', 'Enterprise Executive Report');
         $dompdf->addInfo('Keywords', 'WMS, Report, ' . $data['reportTitle']);
 

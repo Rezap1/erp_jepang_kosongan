@@ -55,7 +55,7 @@
     <div class="mt-5 p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-xs space-y-2">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 font-bold">
-                <span>LPK Wakamiya</span>
+                <span>{{ $companyProfile['company']['name'] ?? $brand['organization']['name'] }}</span>
             </div>
             <template x-if="isLocating">
                 <span class="text-[11px] text-slate-300 animate-pulse">Memeriksa GPS...</span>
@@ -74,7 +74,7 @@
         </div>
 
         <div class="text-slate-300 font-medium flex items-center justify-between text-[11px]">
-            <span>Jarak ke LPK Wakamiya:</span>
+            <span>Jarak ke lokasi LPK:</span>
             <span class="font-extrabold text-white" x-text="distanceText"></span>
         </div>
     </div>

@@ -85,7 +85,7 @@
 <body>
     <div class="header">
         <div class="header-left">
-            <h1 class="company-name">WAKAMIYA MANAGEMENT SYSTEM</h1>
+            <h1 class="company-name">{{ config('branding.application.name') }}</h1>
             <h2 class="doc-title">{{ $document_meta['title'] ?? 'Document' }}</h2>
         </div>
         <div class="header-right">
@@ -102,7 +102,7 @@
     </div>
 
     <div class="footer">
-        Dokumen ini dibuat secara otomatis oleh WAKAMIYA MANAGEMENT SYSTEM (WMS).
+        Dokumen ini dibuat secara otomatis oleh {{ config('branding.application.name') }}.
     </div>
 </body>
 </html>

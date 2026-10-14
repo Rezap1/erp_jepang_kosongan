@@ -57,7 +57,7 @@
                 type="email"
                 :required="true"
                 value="{{ $user['Email'] ?? '' }}"
-                placeholder="Contoh: budi@wakamiya.co.id"
+                placeholder="Contoh: budi@domain-lpk.test"
             />
             
             <x-universal.input 

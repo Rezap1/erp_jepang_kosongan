@@ -355,10 +355,10 @@ class PayrollService
 
         return [
             'company' => [
-                'name' => 'WAKAMIYA MANAGEMENT SYSTEM',
-                'tagline' => 'Enterprise ERP & Human Resource Engine',
-                'address' => 'Jl. Raya Wakamiya No. 88, Jakarta Selatan 12930',
-                'contact' => 'Telp: (021) 8000-9999 | Email: hr@wakamiya.ac.id'
+                'name' => config('branding.organization.name'),
+                'tagline' => config('branding.organization.tagline'),
+                'address' => config('branding.organization.address'),
+                'contact' => trim('Telp: '.config('branding.organization.phone').' | Email: '.config('branding.organization.email'), ' |')
             ],
             'payroll' => $payroll,
             'details' => $details,

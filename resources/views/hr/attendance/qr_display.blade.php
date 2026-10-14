@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-3">
                 <span class="w-4 h-4 rounded-full bg-emerald-500 animate-ping"></span>
-                <h1 class="text-2xl font-black tracking-wider uppercase text-white">PRESENSI QR DINAMIS SDM WAKAMIYA</h1>
+                <h1 class="text-2xl font-black tracking-wider uppercase text-white">PRESENSI QR DINAMIS SDM {{ $companyProfile['company']['name'] ?? $brand['organization']['name'] }}</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">{{ $session['Title'] ?? 'Presensi Kehadiran Pegawai' }} &bull; Sesi ID: <strong class="text-blue-400 font-mono">{{ $session['Session_ID'] }}</strong></p>
         </div>
@@ -88,7 +88,7 @@
 
     <!-- FOOTER STATUS -->
     <footer class="border-t border-slate-800 pt-4 text-center text-xs text-slate-500">
-        Wakamiya Management System (WMS) &bull; Enterprise Dynamic QR Security Engine EPS Rev.1.0 &bull; Nonce Single-Use Protection Active
+        {{ $brand['application']['name'] }} &bull; Enterprise Dynamic QR Security Engine EPS Rev.1.0 &bull; Nonce Single-Use Protection Active
     </footer>
 
     <script>

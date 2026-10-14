@@ -16,8 +16,8 @@
                 <h3 class="text-base font-bold text-slate-800 border-b border-slate-100 pb-2 mb-4">1. Identitas & Legalitas Perusahaan</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <x-universal.input name="Company_Code" label="Kode Perusahaan" placeholder="Contoh: CMP001" :required="true" />
-                    <x-universal.input name="Legal_Name" label="Nama Legalitas (PT/CV)" placeholder="Contoh: PT. Wakamiya Sejahtera" :required="true" />
-                    <x-universal.input name="Company_Name" label="Nama Populer / Merek" placeholder="Contoh: Wakamiya Corp" :required="true" />
+                    <x-universal.input name="Legal_Name" label="Nama Legalitas (PT/CV)" placeholder="Contoh: PT. Mitra Sejahtera" :required="true" />
+                    <x-universal.input name="Company_Name" label="Nama Populer / Merek" placeholder="Contoh: Mitra Jepang" :required="true" />
                     <x-universal.input name="NPWP" label="NPWP (Opsional)" placeholder="00.000.000.0-000.000" />
                     <x-universal.input name="Business_License_Number" label="NIB / Izin Usaha (Opsional)" placeholder="Nomor Induk Berusaha" />
                     <x-universal.input name="Director_Name" label="Nama Direktur / Pimpinan" placeholder="Nama lengkap pimpinan" />

@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Data Alumni - LPK Wakamiya</title>
+    <title>Data Alumni - {{ config('branding.organization.name') }}</title>
     <style>
         @page { margin: 12mm 13mm 18mm; }
         * { box-sizing: border-box; }
@@ -99,19 +99,19 @@
             $value = trim((string) ($value ?? ''));
             return $value !== '' ? mb_strtoupper(mb_substr($value, 0, 1)) : 'A';
         };
-        $logoPath = public_path('img/logo.png.jpeg');
-        $logoData = is_file($logoPath) ? 'data:image/jpeg;base64,'.base64_encode(file_get_contents($logoPath)) : null;
+        $logoPath = public_path(config('branding.assets.logo'));
+        $logoData = is_file($logoPath) ? 'data:'.mime_content_type($logoPath).';base64,'.base64_encode(file_get_contents($logoPath)) : null;
         $isSingle = $alumni->count() === 1;
         $generatedDate = ucfirst($exportedAt->copy()->locale('id')->translatedFormat('d F Y'));
     @endphp
 
     <table class="document-header">
         <tr>
-            <td class="logo-cell">@if($logoData)<img src="{{ $logoData }}" alt="Logo LPK Wakamiya">@endif</td>
+            <td class="logo-cell">@if($logoData)<img src="{{ $logoData }}" alt="Logo {{ config('branding.organization.name') }}">@endif</td>
             <td>
-                <div class="eyebrow">LPK WAKAMIYA</div>
+                <div class="eyebrow">{{ config('branding.application.short_name') }}</div>
                 <div class="document-title">DATA ALUMNI</div>
-                <div class="document-subtitle">Profil Alumni LPK Wakamiya</div>
+                <div class="document-subtitle">Profil Alumni {{ config('branding.organization.name') }}</div>
             </td>
             <td class="header-meta"><strong>{{ $alumni->count() }}</strong><span>ALUMNI TERPILIH</span></td>
         </tr>
@@ -199,6 +199,6 @@
         @endforeach
     @endif
 
-    <div class="document-footer"><table><tr><td>WAKAMIYA MANAGEMENT SYSTEM</td><td class="generated">Generated: {{ $generatedDate }} &bull; {{ $exportedAt->format('H:i') }} WIB</td><td style="width:126px"></td></tr></table></div>
+    <div class="document-footer"><table><tr><td>{{ config('branding.application.name') }}</td><td class="generated">Generated: {{ $generatedDate }} &bull; {{ $exportedAt->format('H:i') }} WIB</td><td style="width:126px"></td></tr></table></div>
 </body>
 </html>

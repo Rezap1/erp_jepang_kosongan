@@ -343,19 +343,19 @@ class SmartGeneratorController extends Controller
             'client_address' => $request->input('client_address', ''),
 
             // Company Profile Info
-            'company_name' => $request->input('company_name', 'PT WAKAMIYA MANDIRI SEJAHTERA'),
-            'company_tagline' => $request->input('company_tagline', 'Growing Together With Integrity'),
-            'company_address' => $request->input('company_address', 'Perum Graha Samolo Indah Blok B1 No 22 Desa Babakan Caringin, Karang Tengah,Cianjur'),
-            'company_phone' => $request->input('company_phone', '0813-1811-5151'),
-            'company_email' => $request->input('company_email', 'lpkwakamiya01@gmail.com'),
-            'company_web' => $request->input('company_web', 'www.wakamiya.com'),
-            'company_npwp' => $request->input('company_npwp', '1000000003150626'),
+            'company_name' => $request->input('company_name', config('branding.organization.name')),
+            'company_tagline' => $request->input('company_tagline', config('branding.organization.tagline')),
+            'company_address' => $request->input('company_address', config('branding.organization.address')),
+            'company_phone' => $request->input('company_phone', config('branding.organization.phone')),
+            'company_email' => $request->input('company_email', config('branding.organization.email')),
+            'company_web' => $request->input('company_web', config('branding.organization.website')),
+            'company_npwp' => $request->input('company_npwp', config('branding.organization.npwp')),
             'layout_kop' => $request->input('layout_kop', 'left'),
 
             // Bank Info
-            'bank_name' => $request->input('bank_name', 'Bank Syariah Indonesia (BSI)'),
-            'bank_account' => $request->input('bank_account', '7343551023'),
-            'bank_holder' => $request->input('bank_holder', 'PT WAKAMIYA MANDIRI SEJAHTERA'),
+            'bank_name' => $request->input('bank_name', config('branding.bank.name')),
+            'bank_account' => $request->input('bank_account', config('branding.bank.account_number')),
+            'bank_holder' => $request->input('bank_holder', config('branding.bank.account_holder')),
 
             // Items & Totals
             'items' => $formattedItems,
@@ -370,11 +370,11 @@ class SmartGeneratorController extends Controller
             'kwitansi_amount' => $kwitansiAmount,
             'terbilang' => TerbilangHelper::convert($kwitansiAmount),
             'payment_for' => $request->input('payment_for', 'Total Angsuran Keempat Biaya Pengurusan Dokumen Ke Jepang'),
-            'issue_city' => $request->input('issue_city', 'Cianjur'),
-            'signer_name' => $request->input('signer_name', 'Helmi Maulana'),
+            'issue_city' => $request->input('issue_city', config('branding.document.issue_city')),
+            'signer_name' => $request->input('signer_name', config('branding.document.signer_name')),
 
             // Terms
-            'notes' => $request->input('notes', 'Pembayaran via Transfer BSI 7343551023 a.n PT Wakamiya Mandiri Sejahtera.'),
+            'notes' => $request->input('notes', 'Pembayaran dilakukan ke rekening resmi yang tercantum pada dokumen.'),
 
             // Images
             'company_logo' => $logoBase64,
@@ -441,18 +441,18 @@ class SmartGeneratorController extends Controller
             'client_email' => $studentEmail,
             'client_address' => $student['Address'] ?? '',
 
-            'company_name' => $request->input('company_name', 'PT WAKAMIYA MANDIRI SEJAHTERA'),
-            'company_tagline' => $request->input('company_tagline', 'Growing Together With Integrity'),
-            'company_address' => $request->input('company_address', 'Perum Graha Samolo Indah Blok B1 No 22 Desa Babakan Caringin, Karang Tengah,Cianjur'),
-            'company_phone' => $request->input('company_phone', '0813-1811-5151'),
-            'company_email' => $request->input('company_email', 'lpkwakamiya01@gmail.com'),
-            'company_web' => $request->input('company_web', 'www.wakamiya.com'),
-            'company_npwp' => $request->input('company_npwp', '1000000003150626'),
+            'company_name' => $request->input('company_name', config('branding.organization.name')),
+            'company_tagline' => $request->input('company_tagline', config('branding.organization.tagline')),
+            'company_address' => $request->input('company_address', config('branding.organization.address')),
+            'company_phone' => $request->input('company_phone', config('branding.organization.phone')),
+            'company_email' => $request->input('company_email', config('branding.organization.email')),
+            'company_web' => $request->input('company_web', config('branding.organization.website')),
+            'company_npwp' => $request->input('company_npwp', config('branding.organization.npwp')),
             'layout_kop' => $request->input('layout_kop', 'left'),
 
-            'bank_name' => $request->input('bank_name', 'Bank Syariah Indonesia (BSI)'),
-            'bank_account' => $request->input('bank_account', '7343551023'),
-            'bank_holder' => $request->input('bank_holder', 'PT WAKAMIYA MANDIRI SEJAHTERA'),
+            'bank_name' => $request->input('bank_name', config('branding.bank.name')),
+            'bank_account' => $request->input('bank_account', config('branding.bank.account_number')),
+            'bank_holder' => $request->input('bank_holder', config('branding.bank.account_holder')),
 
             'items' => $items,
             'subtotal' => $subtotal,
@@ -465,9 +465,9 @@ class SmartGeneratorController extends Controller
             'kwitansi_amount' => $kwitansiAmount,
             'terbilang' => TerbilangHelper::convert($kwitansiAmount),
             'payment_for' => $description,
-            'issue_city' => $request->input('issue_city', 'Cianjur'),
-            'signer_name' => $request->input('signer_name', 'Helmi Maulana'),
-            'notes' => $invoice['Notes'] ?? $request->input('notes', 'Pembayaran via Transfer BSI 7343551023 a.n PT Wakamiya Mandiri Sejahtera.'),
+            'issue_city' => $request->input('issue_city', config('branding.document.issue_city')),
+            'signer_name' => $request->input('signer_name', config('branding.document.signer_name')),
+            'notes' => $invoice['Notes'] ?? $request->input('notes', 'Pembayaran dilakukan ke rekening resmi yang tercantum pada dokumen.'),
             'company_logo' => $logoBase64,
             'signature' => $signatureBase64,
             'stamp' => $stampBase64

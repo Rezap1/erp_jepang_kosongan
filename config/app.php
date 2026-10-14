@@ -1,5 +1,7 @@
 <?php
 
+$configuredAppName = env('APP_NAME', 'ERP LPK Jepang');
+
 return [
 
     /*
@@ -13,7 +15,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('BRAND_APP_NAME', $configuredAppName === 'Laravel' ? 'ERP LPK Jepang' : $configuredAppName),
 
     /*
     |--------------------------------------------------------------------------

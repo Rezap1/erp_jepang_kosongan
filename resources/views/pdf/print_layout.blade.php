@@ -44,14 +44,14 @@
     <div class="header-container">
         <table><tr>
             <td class="header-logo">
-                @php($imagePath = public_path('img/logo.png.jpeg'))
+                @php($imagePath = public_path(config('branding.assets.logo')))
                 @if(is_file($imagePath))
-                    <img src="data:image/jpeg;base64,{{ base64_encode(file_get_contents($imagePath)) }}" alt="Logo">
+                    <img src="data:{{ mime_content_type($imagePath) }};base64,{{ base64_encode(file_get_contents($imagePath)) }}" alt="Logo">
                 @endif
             </td>
             <td class="header-text">
-                <div class="company-name">PT. WAKAMIYA MANDIRI SEJAHTERA</div>
-                <div class="company-address">Laporan resmi WAKAMIYA MANAGEMENT SYSTEM (WMS)</div>
+                <div class="company-name">{{ config('branding.organization.name') }}</div>
+                <div class="company-address">Laporan resmi {{ config('branding.application.name') }}</div>
             </td>
         </tr></table>
     </div>
@@ -63,6 +63,6 @@
     </table>
     @if(!empty($executive_summary))<div class="exec-summary"><table>{!! $executive_summary !!}</table></div>@endif
     @yield('content')
-    <div class="footer">WAKAMIYA MANAGEMENT SYSTEM - dokumen dicetak pada {{ $generatedDate ?? '-' }}</div>
+    <div class="footer">{{ config('branding.application.name') }} - dokumen dicetak pada {{ $generatedDate ?? '-' }}</div>
 </body>
 </html>

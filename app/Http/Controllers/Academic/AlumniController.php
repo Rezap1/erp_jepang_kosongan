@@ -188,8 +188,8 @@ class AlumniController extends Controller
             'isHtml5ParserEnabled' => true,
             'isRemoteEnabled' => false,
         ]);
-        $pdf->getDomPDF()->addInfo('Title', 'Data Alumni - LPK Wakamiya');
-        $pdf->getDomPDF()->addInfo('Author', 'LPK Wakamiya');
+        $pdf->getDomPDF()->addInfo('Title', 'Data Alumni - '.config('branding.organization.name'));
+        $pdf->getDomPDF()->addInfo('Author', config('branding.organization.name'));
         $pdf->getDomPDF()->addInfo('Subject', 'Data Alumni');
         $pdf->render();
         $dompdf = $pdf->getDomPDF();

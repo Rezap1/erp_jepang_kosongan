@@ -115,4 +115,7 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    // Empty means OAuth may use any verified Google Workspace domain.
+    'allowed_domain' => env('MAIL_ALLOWED_DOMAIN', ''),
+
 ];

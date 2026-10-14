@@ -24,7 +24,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>WAKAMIYA MANAGEMENT SYSTEM</h2>
+            <h2>{{ config('branding.application.name') }}</h2>
             <p>Informasi Data Profil Karyawan Resmi</p>
         </div>
         <div class="content">
@@ -85,7 +85,7 @@
             </p>
         </div>
         <div class="footer">
-            &copy; {{ date('Y') }} Wakamiya Management System (WMS). All rights reserved.
+            &copy; {{ date('Y') }} {{ config('branding.application.name') }}. All rights reserved.
         </div>
     </div>
 </body>

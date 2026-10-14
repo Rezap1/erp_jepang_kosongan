@@ -193,7 +193,7 @@
         'document' => $document ?? $companyProfile['document'] ?? [],
         'verificationUrl' => $verificationUrl ?? null,
         'qrCodeSvg' => $qrCodeSvg ?? null,
-        'notice' => 'Dokumen ini diterbitkan secara elektronik oleh ' . ($company['name'] ?? 'Wakamiya Management System (WMS)') . ' dan memiliki kekuatan verifikasi sah. Upah lembur akan dicairkan otomatis via Payroll Engine Phase G.'
+        'notice' => 'Dokumen ini diterbitkan secara elektronik oleh ' . ($company['name'] ?? config('branding.application.name')) . ' dan memiliki kekuatan verifikasi sah. Upah lembur akan dicairkan otomatis via Payroll Engine Phase G.'
     ])
 
 </body>

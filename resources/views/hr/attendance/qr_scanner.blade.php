@@ -18,14 +18,14 @@
 
         <p class="text-xs text-center font-medium text-slate-400 -mt-2">Arahkan kamera ke QR Code Pegawai</p>
 
-        <!-- CAMERA VIEWPORT WITH WAKAMIYA SKY BLUE CORNER GUIDES & LASER SCAN -->
+        <!-- CAMERA VIEWPORT WITH BRAND COLOR CORNER GUIDES & LASER SCAN -->
         <div class="relative overflow-hidden rounded-3xl border-2 border-slate-900 bg-black aspect-square flex items-center justify-center shadow-2xl">
             <div id="hr-qr-reader" class="w-full h-full"></div>
             
             <!-- CORNER RETICLE GUIDES & LASER LINE -->
             <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
                 <div class="w-56 h-56 border-2 border-sky-400/80 rounded-3xl relative">
-                    <!-- Laser Scan Line (Wakamiya Sky Blue #38BDF8 Glow) -->
+                    <!-- Laser scan line -->
                     <div class="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-sky-400 to-transparent shadow-[0_0_15px_#38bdf8] animate-[pulse_1.5s_infinite]"></div>
 
                     <div class="absolute -top-1.5 -left-1.5 w-6 h-6 border-t-4 border-l-4 border-sky-400 rounded-tl-xl"></div>
@@ -103,7 +103,7 @@
             </div>
             <div class="flex justify-between border-b border-slate-200/60 pb-2">
                 <span class="text-slate-500">Lokasi</span>
-                <span class="font-bold text-slate-800">LPK Wakamiya</span>
+                <span class="font-bold text-slate-800">{{ $companyProfile['company']['name'] ?? $brand['organization']['name'] }}</span>
             </div>
             <div class="flex justify-between border-b border-slate-200/60 pb-2">
                 <span class="text-slate-500">Jarak</span>

@@ -111,7 +111,7 @@
         </div>
     @else
         <div style="margin-top: 20px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 8.5px; color: #94a3b8; text-align: center;">
-            Dokumen ini diterbitkan secara elektronik oleh Wakamiya Management System (WMS) dan memiliki kekuatan verifikasi yang sah.
+            Dokumen ini diterbitkan secara elektronik oleh {{ config('branding.application.name') }} dan memiliki kekuatan verifikasi yang sah.
         </div>
     @endif
 </div>

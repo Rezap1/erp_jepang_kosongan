@@ -1,6 +1,6 @@
 @props([
-    'instagram' => 'https://instagram.com/wakamiya',
-    'tiktok' => 'https://tiktok.com/@wakamiya'
+    'instagram' => config('branding.social.instagram'),
+    'tiktok' => config('branding.social.tiktok')
 ])
 
 <div class="flex justify-center items-center space-x-6 mt-8 relative z-10">

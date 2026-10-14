@@ -135,7 +135,7 @@ class EmailDeliveryController extends Controller
         }
 
         // GOOGLE WORKSPACE DOMAIN VALIDATION
-        $allowedDomain = config('mail.allowed_domain', 'wakamiya.ac.id');
+        $allowedDomain = config('mail.allowed_domain');
         $emailDomain = strtolower(substr(strrchr($accountEmail, "@"), 1));
 
         if ($provider === 'google' && !empty($allowedDomain) && $emailDomain !== strtolower($allowedDomain)) {
@@ -179,7 +179,7 @@ class EmailDeliveryController extends Controller
         }
 
         $company = $this->settingService->getCompanyProfile();
-        $userEmail = auth()->user()->email ?? ($company['company']['email'] ?? 'hr@wakamiya.ac.id');
+        $userEmail = auth()->user()->email ?? ($company['company']['email'] ?? config('branding.organization.email'));
 
         $provider = $pending['provider'];
         $accountEmail = $pending['account'];
@@ -196,8 +196,8 @@ class EmailDeliveryController extends Controller
         $this->settingService->set('SET_EMAIL_CONNECTED_ACCOUNT', $accountEmail, $userEmail);
         $this->settingService->set('SET_EMAIL_FROM_ADDRESS', $accountEmail, $userEmail);
         $this->settingService->set('EMAIL_FROM_ADDRESS', $accountEmail, $userEmail);
-        $this->settingService->set('SET_EMAIL_FROM_NAME', $company['company']['name'] ?? 'WAKAMIYA MANAGEMENT SYSTEM', $userEmail);
-        $this->settingService->set('EMAIL_FROM_NAME', $company['company']['name'] ?? 'WAKAMIYA MANAGEMENT SYSTEM', $userEmail);
+        $this->settingService->set('SET_EMAIL_FROM_NAME', $company['company']['name'] ?? config('branding.application.name'), $userEmail);
+        $this->settingService->set('EMAIL_FROM_NAME', $company['company']['name'] ?? config('branding.application.name'), $userEmail);
         $this->settingService->set('SET_EMAIL_CREDENTIAL_DATA', $encryptedCredentials, $userEmail);
 
         $this->settingService->reloadCache();
@@ -269,7 +269,7 @@ class EmailDeliveryController extends Controller
             'reply_to' => 'nullable|email|max:255',
         ]);
 
-        $userEmail = auth()->user()->email ?? 'admin@wakamiya.ac.id';
+        $userEmail = auth()->user()->email ?? config('branding.organization.email');
 
         $smtpPayload = [
             'provider' => 'smtp',
@@ -308,7 +308,7 @@ class EmailDeliveryController extends Controller
      */
     public function disconnect(Request $request)
     {
-        $userEmail = auth()->user()->email ?? 'admin@wakamiya.ac.id';
+        $userEmail = auth()->user()->email ?? config('branding.organization.email');
 
         $this->settingService->set('EMAIL_PROVIDER', 'none', $userEmail);
         $this->settingService->set('SET_EMAIL_PROVIDER', 'none', $userEmail);
@@ -334,7 +334,7 @@ class EmailDeliveryController extends Controller
             return $this->connectProvider($request, $provider);
         }
 
-        $userEmail = auth()->user()->email ?? 'admin@wakamiya.ac.id';
+        $userEmail = auth()->user()->email ?? config('branding.organization.email');
         $this->settingService->set('SET_EMAIL_STATUS', 'connected', $userEmail);
         $this->settingService->set('SET_EMAIL_CONNECTED_AT', now()->format('d M Y, H:i'), $userEmail);
         $this->settingService->reloadCache();
@@ -354,7 +354,7 @@ class EmailDeliveryController extends Controller
             'reply_to' => 'nullable|email',
         ]);
 
-        $userEmail = auth()->user()->email ?? 'admin@wakamiya.ac.id';
+        $userEmail = auth()->user()->email ?? config('branding.organization.email');
 
         $this->settingService->set('SET_EMAIL_FROM_ADDRESS', $validated['from_address'], $userEmail);
         $this->settingService->set('EMAIL_FROM_ADDRESS', $validated['from_address'], $userEmail);

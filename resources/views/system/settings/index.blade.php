@@ -2,7 +2,7 @@
 @section('header', 'Pengaturan Sistem')
 @section('content')
 <div class="space-y-6 max-w-7xl mx-auto" x-data="systemSettingsHub()">
-    <x-page-header title="Pengaturan Sistem" description="Pusat konfigurasi master dan control center untuk Wakamiya Management System." :breadcrumbs="['Dasbor' => route('dashboard.administrator'), 'Pengaturan' => '#']" />
+    <x-page-header title="Pengaturan Sistem" description="Pusat konfigurasi master dan control center untuk {{ $brand['application']['name'] }}." :breadcrumbs="['Dasbor' => route('dashboard.administrator'), 'Pengaturan' => '#']" />
 
     @if(session('success'))
         <div class="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl p-4 text-sm font-bold">
@@ -20,7 +20,7 @@
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-black text-lg shrink-0">⚙️</div>
             <div>
-                <h3 class="font-bold text-sm text-white">Wakamiya System Control Center</h3>
+                <h3 class="font-bold text-sm text-white">{{ $brand['application']['name'] }} Control Center</h3>
                 <p class="text-xs text-slate-400">Konfigurasi tingkat sistem. Pengaturan operasional tersedia di modul masing-masing.</p>
             </div>
         </div>
@@ -32,7 +32,7 @@
                 </button>
             </form>
             @if($activeTab === 'Branding')
-                <form action="{{ route('settings.reset_branding') }}" method="POST" onsubmit="return confirm('Atur ulang warna ke palet merek resmi Wakamiya?')">
+                <form action="{{ route('settings.reset_branding') }}" method="POST" onsubmit="return confirm('Atur ulang warna ke palet default instance?')">
                     @csrf
                     <button type="submit" class="px-4 py-2.5 bg-sky-900/50 hover:bg-sky-800/80 text-sky-300 font-bold text-xs rounded-xl border border-sky-700/50 transition-all flex items-center gap-1.5 min-h-[44px]">
                         🔄 <span>Atur Ulang Merek</span>
@@ -159,7 +159,7 @@
                                         <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30">
                                             {{ $pending['provider_name'] ?? 'Google Workspace' }}
                                         </span>
-                                        <h3 class="text-lg font-black mt-2 text-white">WAKAMIYA MANAGEMENT SYSTEM</h3>
+                                        <h3 class="text-lg font-black mt-2 text-white">{{ $brand['application']['name'] }}</h3>
                                         <p class="text-sm font-mono font-bold text-sky-400 mt-1">{{ $pending['account'] }}</p>
                                     </div>
                                     <div class="p-3 bg-emerald-950/70 border border-emerald-500/50 rounded-xl text-emerald-400 text-xs font-bold flex items-center justify-center gap-2">
@@ -471,7 +471,7 @@
 
                                     <div>
                                         <label class="block font-bold text-slate-300 mb-1">Nama Pengirim (From Name)</label>
-                                        <input type="text" name="sender_name" required value="WAKAMIYA MANAGEMENT SYSTEM" class="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-400 rounded-xl text-white p-3 font-semibold min-h-[46px] outline-none">
+                                        <input type="text" name="sender_name" required value="{{ $brand['application']['name'] }}" class="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-400 rounded-xl text-white p-3 font-semibold min-h-[46px] outline-none">
                                     </div>
 
                                     <div class="pt-3 flex items-center justify-end gap-3 border-t border-slate-800">
@@ -530,7 +530,7 @@
                         <!-- Enhanced Live Preview Panel -->
                         <div class="mb-8 p-4 md:p-5 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-4">
                             <div class="border-b border-slate-800 pb-3">
-                                <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest">🎨 Pratinjau Langsung — Tampilan Wakamiya</h3>
+                                <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest">🎨 Pratinjau Langsung — Tampilan {{ $brand['application']['short_name'] }}</h3>
                                 <p class="text-xs text-slate-400">Ubah warna di bawah → pratinjau langsung berubah secara real-time.</p>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 text-xs">
@@ -540,7 +540,7 @@
                                     <div class="rounded-xl border overflow-hidden" :style="{ borderColor: previewSidebarBg + '80' }">
                                         <div class="p-3 flex items-center gap-2" :style="{ backgroundColor: previewSidebarBg }">
                                             <div class="w-6 h-6 rounded-lg flex items-center justify-center font-black text-[10px]" :style="{ backgroundColor: previewPrimary, color: '#0F172A' }">W</div>
-                                            <span class="font-bold text-[11px]" :style="{ color: previewSidebarText }">Wakamiya</span>
+                                            <span class="font-bold text-[11px]" :style="{ color: previewSidebarText }">{{ $brand['application']['short_name'] }}</span>
                                         </div>
                                         <div class="px-3 py-1.5" :style="{ backgroundColor: previewSidebarBg }">
                                             <span class="text-[10px] block py-1" :style="{ color: previewSidebarText }">📊 Dasbor</span>

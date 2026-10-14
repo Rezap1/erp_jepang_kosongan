@@ -196,15 +196,17 @@ class AppServiceProvider extends ServiceProvider
                 if ($brandingPayload === null) {
                     $settingService = app(SystemSettingService::class);
                     $brandingPayload = [
+                        'brand' => config('branding'),
                         'themeTokens' => $settingService->getThemeTokens(),
                         'companyProfile' => $settingService->getCompanyProfile(),
                     ];
                 }
 
+                $view->with('brand', $brandingPayload['brand']);
                 $view->with('themeTokens', $brandingPayload['themeTokens']);
                 $view->with('companyProfile', $brandingPayload['companyProfile']);
             } catch (\Throwable $e) {
-                // Safe fallback
+                $view->with('brand', config('branding'));
             }
         });
 

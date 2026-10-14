@@ -2,7 +2,7 @@
 @section('header', 'Pengaturan Akademik')
 @section('content')
 <div class="space-y-6 max-w-5xl mx-auto">
-    <x-page-header title="Pengaturan Akademik" description="Kelola konfigurasi operasional modul akademik dan penilaian Wakamiya." :breadcrumbs="['Dasbor' => route('dashboard.academic'), 'Pengaturan Akademik' => '#']" />
+    <x-page-header title="Pengaturan Akademik" description="Kelola konfigurasi operasional modul akademik dan penilaian." :breadcrumbs="['Dasbor' => route('dashboard.academic'), 'Pengaturan Akademik' => '#']" />
 
     @if(session('success'))
         <div class="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl p-4 text-sm font-bold">

@@ -6,7 +6,7 @@
 @props(['company' => []])
 
 @php
-    $companyName    = !empty($company['name'])    ? $company['name']    : 'WAKAMIYA MANAGEMENT SYSTEM';
+    $companyName    = !empty($company['name'])    ? $company['name']    : config('branding.organization.name');
     $companyTagline = $company['tagline'] ?? '';
     $companyAddress = $company['address'] ?? '';
     $companyPhone   = $company['phone']   ?? '';

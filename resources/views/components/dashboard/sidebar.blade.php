@@ -1,9 +1,9 @@
 @props(['userRole'])
 
 @php
-    $logoUrl = $companyProfile['company']['logo_url'] ?? asset('img/logo.png.jpeg');
-    $companyName = $companyProfile['company']['name'] ?? 'WAKAMIYA';
-    $tagline = $companyProfile['company']['tagline'] ?? 'SISTEM MANAJEMEN';
+    $logoUrl = $companyProfile['company']['logo_url'] ?? asset($brand['assets']['logo']);
+    $companyName = $companyProfile['company']['name'] ?? $brand['organization']['name'];
+    $tagline = $companyProfile['company']['tagline'] ?? $brand['organization']['tagline'];
     
     // Centralized MASTER Menu Mapping (De-duplicated)
     $masterMenus = [
@@ -96,7 +96,7 @@
     <!-- Brand / Logo Area -->
     <div class="pt-8 pb-6 flex flex-col items-center justify-center border-b border-slate-800 relative shrink-0 px-3 cursor-pointer" @click="toggleExpanded()">
         <div :class="{ 'w-[84px] h-[84px]': expanded, 'w-[48px] h-[48px]': !expanded }" class="rounded-full flex items-center justify-center border-[3px] p-1 mb-2 shadow-lg transition-all duration-300" style="background-color: var(--color-sidebar-bg, #111827); border-color: var(--color-primary, #38BDF8);">
-            <img src="{{ $logoUrl }}" alt="{{ $companyName }}" class="w-full h-full object-cover bg-white rounded-full p-0.5" onerror="this.src='{{ asset('img/logo.png.jpeg') }}'">
+            <img src="{{ $logoUrl }}" alt="{{ $companyName }}" class="w-full h-full object-cover bg-white rounded-full p-0.5" onerror="this.src='{{ asset($brand['assets']['logo']) }}'">
         </div>
         <div x-show="expanded" x-transition class="flex flex-col items-center">
             <span class="text-[14px] font-black text-white tracking-wider uppercase mt-1 text-center px-1 leading-snug break-words max-w-full block">{{ $companyName }}</span>

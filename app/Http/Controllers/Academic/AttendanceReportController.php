@@ -51,7 +51,7 @@ class AttendanceReportController extends Controller
             'isRemoteEnabled' => false,
         ]);
         $pdf->getDomPDF()->addInfo('Title', $report['title']);
-        $pdf->getDomPDF()->addInfo('Author', 'Wakamiya Management System');
+        $pdf->getDomPDF()->addInfo('Author', config('branding.application.name'));
 
         return $pdf->download($filename);
     }

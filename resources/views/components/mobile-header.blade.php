@@ -1,6 +1,6 @@
 @props(['title' => 'WMS', 'showBack' => false, 'backUrl' => null])
 
-<!-- STANDARDIZED WMS MOBILE HEADER (WAKAMIYA BRAND MATCHING SIDEBAR & LOGO) -->
+<!-- STANDARDIZED WMS MOBILE HEADER MATCHING SIDEBAR & LOGO -->
 <div class="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 px-4 py-3 shadow-xs select-none">
     <div class="flex items-center justify-between max-w-md mx-auto">
         <!-- LEFT: HAMBURGER OR BACK BUTTON WITH LOGO -->
@@ -17,7 +17,7 @@
 
             <div class="flex items-center gap-2">
                 <div class="w-7 h-7 bg-[#111827] rounded-full flex items-center justify-center border-2 border-sky-400 p-0.5 shadow-sm">
-                    <img src="{{ $companyProfile['company']['logo_url'] ?? asset('img/logo.png.jpeg') }}" alt="Logo" class="w-full h-full object-cover rounded-full bg-white" onerror="this.src='{{ asset('img/logo.png.jpeg') }}'">
+                    <img src="{{ $companyProfile['company']['logo_url'] ?? asset($brand['assets']['logo']) }}" alt="Logo" class="w-full h-full object-cover rounded-full bg-white" onerror="this.src='{{ asset($brand['assets']['logo']) }}'">
                 </div>
                 <h1 class="text-base font-black text-[#111827] tracking-tight">
                     {{ $title }}

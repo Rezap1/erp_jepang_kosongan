@@ -16,7 +16,7 @@
             {{ $title }}{{ $name ? ', ' . $name : '' }}!
         </h2>
         <p class="text-slate-600 text-[15px] font-medium mb-3">
-            Anda berhasil login ke <span class="text-emerald-600 font-bold uppercase">WAKAMIYA MANAGEMENT</span> SYSTEM
+            Anda berhasil login ke <span class="text-emerald-600 font-bold uppercase">{{ $brand['application']['name'] }}</span>
         </p>
         <p class="text-slate-500 text-[14px] font-medium mb-0">
             Semangat bekerja dan terus memberikan yang terbaik.

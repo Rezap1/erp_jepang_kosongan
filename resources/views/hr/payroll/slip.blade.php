@@ -21,7 +21,7 @@
                 <span class="text-white font-black text-xl">WMS</span>
             </div>
             <div>
-                <h2 class="font-bold text-slate-800">LPK Wakamiya</h2>
+                <h2 class="font-bold text-slate-800">{{ $companyProfile['company']['name'] ?? $brand['organization']['name'] }}</h2>
                 <p class="text-sm text-slate-500">Sistem HR & Penggajian Enterprise</p>
             </div>
         </div>

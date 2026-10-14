@@ -85,8 +85,8 @@ class EmailDeliveryService
         $config = $this->applyDynamicMailConfig();
 
         return [
-            'from_address' => $config['from_address'] ?: 'hr@wakamiya.ac.id',
-            'from_name' => $config['from_name'] ?: 'WAKAMIYA MANAGEMENT SYSTEM',
+            'from_address' => $config['from_address'] ?: config('branding.organization.email'),
+            'from_name' => $config['from_name'] ?: config('branding.application.name'),
             'reply_to' => $config['reply_to'] ?: $config['from_address'],
             'provider' => $config['provider'],
             'status' => $config['is_healthy'] ? '🟢 Connected' : '🔴 Disconnected',
@@ -111,7 +111,7 @@ class EmailDeliveryService
         $subject = 'WMS Email Delivery Test';
         $timestamp = now()->format('d M Y H:i:s T');
 
-        $bodyText = "WAKAMIYA MANAGEMENT SYSTEM\n\n" .
+        $bodyText = config('branding.application.name')."\n\n" .
             "Email delivery test berhasil dikirim.\n" .
             "Pengirim: {$sender['from_name']} <{$sender['from_address']}>\n" .
             "Waktu: {$timestamp}\n";

@@ -320,7 +320,7 @@
         'document' => $document ?? $companyProfile['document'] ?? [],
         'verificationUrl' => $verificationUrl ?? null,
         'qrCodeSvg' => $qrCodeSvg ?? null,
-        'notice' => 'Dokumen ini merupakan Invoice Tagihan Resmi yang diterbitkan secara elektronik oleh ' . ($company['name'] ?? 'Wakamiya Management System (WMS)') . '. Pembayaran dianggap sah setelah bukti pembayaran diverifikasi oleh Departemen Keuangan.'
+        'notice' => 'Dokumen ini merupakan Invoice Tagihan Resmi yang diterbitkan secara elektronik oleh ' . ($company['name'] ?? config('branding.application.name')) . '. Pembayaran dianggap sah setelah bukti pembayaran diverifikasi oleh Departemen Keuangan.'
     ])
 
 </body>

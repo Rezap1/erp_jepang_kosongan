@@ -68,15 +68,15 @@ class SystemSettingController extends Controller
     {
         $userEmail = $this->authenticatedActor();
         $defaultBrandings = [
-            'BRAND_PRIMARY_COLOR' => '#38BDF8',
-            'BRAND_SECONDARY_COLOR' => '#0F172A',
-            'BRAND_ACCENT_COLOR' => '#0EA5E9',
-            'BRAND_SIDEBAR_BG' => '#111827',
-            'BRAND_SIDEBAR_TEXT' => '#94A3B8',
-            'BRAND_SIDEBAR_ACTIVE_BG' => '#1E293B',
-            'BRAND_SIDEBAR_ACTIVE_TEXT' => '#38BDF8',
-            'BRAND_TOPBAR_BG' => '#111827',
-            'BRAND_TOPBAR_TEXT' => '#F8FAFC',
+            'BRAND_PRIMARY_COLOR' => config('branding.colors.primary'),
+            'BRAND_SECONDARY_COLOR' => config('branding.colors.secondary'),
+            'BRAND_ACCENT_COLOR' => config('branding.colors.accent'),
+            'BRAND_SIDEBAR_BG' => config('branding.colors.sidebar_bg'),
+            'BRAND_SIDEBAR_TEXT' => config('branding.colors.sidebar_text'),
+            'BRAND_SIDEBAR_ACTIVE_BG' => config('branding.colors.sidebar_active_bg'),
+            'BRAND_SIDEBAR_ACTIVE_TEXT' => config('branding.colors.sidebar_active_text'),
+            'BRAND_TOPBAR_BG' => config('branding.colors.topbar_bg'),
+            'BRAND_TOPBAR_TEXT' => config('branding.colors.topbar_text'),
             'BRAND_THEME_MODE' => 'dark',
         ];
 
@@ -85,7 +85,7 @@ class SystemSettingController extends Controller
         }
         $this->settingService->reloadCache();
 
-        return redirect()->route('settings.index', ['tab' => 'Branding'])->with('success', 'Skema warna branding berhasil dikembalikan ke Wakamiya Brand Palette resmi (#111827 Navy & #38BDF8 Sky Blue).');
+        return redirect()->route('settings.index', ['tab' => 'Branding'])->with('success', 'Skema warna branding berhasil dikembalikan ke palet default instance ERP LPK Jepang.');
     }
 
     public function update(Request $request)

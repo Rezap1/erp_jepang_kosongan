@@ -42,12 +42,12 @@
     <table class="header">
         <tr>
             <td class="logo">
-                @php($logoPath = public_path('img/logo.png.jpeg'))
-                @if(is_file($logoPath))<img src="data:image/jpeg;base64,{{ base64_encode(file_get_contents($logoPath)) }}" alt="Logo">@endif
+                @php($logoPath = public_path(config('branding.assets.logo')))
+                @if(is_file($logoPath))<img src="data:{{ mime_content_type($logoPath) }};base64,{{ base64_encode(file_get_contents($logoPath)) }}" alt="Logo">@endif
             </td>
             <td>
-                <div class="org">LPK WAKAMIYA</div>
-                <div class="company">PT WAKAMIYA MANDIRI SEJAHTERA</div>
+                <div class="org">{{ config('branding.application.short_name') }}</div>
+                <div class="company">{{ config('branding.organization.name') }}</div>
             </td>
         </tr>
     </table>
@@ -105,6 +105,6 @@
         </tbody>
     </table>
 
-    <div class="footer"><table><tr><td>WAKAMIYA MANAGEMENT SYSTEM</td><td style="text-align:right">Halaman <span class="page-number"></span></td></tr></table></div>
+    <div class="footer"><table><tr><td>{{ config('branding.application.name') }}</td><td style="text-align:right">Halaman <span class="page-number"></span></td></tr></table></div>
 </body>
 </html>

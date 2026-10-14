@@ -54,7 +54,7 @@
                 label="Alamat Email" 
                 type="email"
                 :required="true"
-                placeholder="email@wakamiya.co.id"
+                placeholder="nama@domain-lpk.test"
             />
             
             <x-universal.input 

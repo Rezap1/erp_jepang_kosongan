@@ -233,16 +233,16 @@
             </td>
             @endif
             <td class="header-details">
-                <div class="company-name">{{ $data['company_name'] ?? 'PT WAKAMIYA MANDIRI SEJAHTERA' }}</div>
+                <div class="company-name">{{ $data['company_name'] ?? config('branding.organization.name') }}</div>
                 <div class="company-tagline">{{ $data['company_tagline'] ?? 'Growing Together With Integrity' }}</div>
                 <div class="company-contact">
-                    {{ $data['company_address'] ?? 'Perum Graha Samolo Indah Blok B1 No 22 Desa Babakan Caringin, Karang Tengah,Cianjur' }}<br>
-                    Telp: {{ $data['company_phone'] ?? '0813-1811-5151' }} | Email: {{ $data['company_email'] ?? 'lpkwakamiya01@gmail.com' }}
+                    {{ $data['company_address'] ?? config('branding.organization.address') }}<br>
+                    Telp: {{ $data['company_phone'] ?? config('branding.organization.phone') }} | Email: {{ $data['company_email'] ?? config('branding.organization.email') }}
                 </div>
             </td>
             <td class="company-npwp">
                 NPWP USAHA<br>
-                <span style="font-size: 10.5px; color: #0f172a;">{{ $data['company_npwp'] ?? '1000000003150626' }}</span>
+                <span style="font-size: 10.5px; color: #0f172a;">{{ $data['company_npwp'] ?? config('branding.organization.npwp') }}</span>
             </td>
         </tr>
     </table>
@@ -334,15 +334,15 @@
                     <table style="width: 100%; font-size: 10px;">
                         <tr>
                             <td style="width: 60px; color: #475569; font-weight: 700;">Bank:</td>
-                            <td><strong style="color: #0f172a;">{{ $data['bank_name'] ?? 'Bank Syariah Indonesia (BSI)' }}</strong></td>
+                            <td><strong style="color: #0f172a;">{{ $data['bank_name'] ?? config('branding.bank.name') }}</strong></td>
                         </tr>
                         <tr>
                             <td style="color: #475569; font-weight: 700; padding-top: 3px;">No. Rek:</td>
-                            <td style="padding-top: 3px;"><strong style="color: #047857; font-size: 11px;">{{ $data['bank_account'] ?? '7343551023' }}</strong></td>
+                            <td style="padding-top: 3px;"><strong style="color: #047857; font-size: 11px;">{{ $data['bank_account'] ?? config('branding.bank.account_number') }}</strong></td>
                         </tr>
                         <tr>
                             <td style="color: #475569; font-weight: 700; padding-top: 3px;">A.N:</td>
-                            <td style="padding-top: 3px;"><strong style="color: #0f172a;">{{ $data['bank_holder'] ?? 'PT WAKAMIYA MANDIRI SEJAHTERA' }}</strong></td>
+                            <td style="padding-top: 3px;"><strong style="color: #0f172a;">{{ $data['bank_holder'] ?? config('branding.bank.account_holder') }}</strong></td>
                         </tr>
                     </table>
                 </div>
@@ -382,7 +382,7 @@
                 <div class="notes-box">
                     <strong style="color: #0f172a; font-size: 10.5px;">Catatan & Ketentuan:</strong><br>
                     <span style="font-style: italic; color: #1e293b; font-weight: 600;">
-                        {!! nl2br(e($data['notes'] ?? 'Pembayaran via Transfer BSI 7343551023 a.n PT Wakamiya Mandiri Sejahtera.')) !!}
+                        {!! nl2br(e($data['notes'] ?? 'Pembayaran dilakukan ke rekening resmi yang tercantum pada dokumen.')) !!}
                     </span>
                 </div>
             </td>
@@ -398,7 +398,7 @@
                         @endif
                     </div>
                     <div style="font-weight: 900; color: #0f172a; font-size: 11px; border-bottom: 1.5px solid #0f172a; display: inline-block; padding-bottom: 1px;">
-                        {{ $data['company_name'] ?? 'PT WAKAMIYA MANDIRI SEJAHTERA' }}
+                        {{ $data['company_name'] ?? config('branding.organization.name') }}
                     </div>
                     <div style="font-size: 9.5px; color: #334155; font-weight: 700; margin-top: 2px;">
                         {{ $data['signer_title'] ?? 'Finance & Accounting Dept.' }}
@@ -410,7 +410,7 @@
 
     <!-- WATERMARK FOOTER -->
     <div class="footer-watermark">
-        Dokumen resmi diterbitkan secara sah oleh komputer {{ $data['company_name'] ?? 'PT WAKAMIYA MANDIRI SEJAHTERA' }}.
+        Dokumen resmi diterbitkan secara sah oleh komputer {{ $data['company_name'] ?? config('branding.organization.name') }}.
     </div>
 
 </body>

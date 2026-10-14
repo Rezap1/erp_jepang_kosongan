@@ -4,7 +4,7 @@
 
 <x-universal.index-layout 
     title="Pencatatan Transaksi" 
-    description="Kelola dan catat semua pemasukan dan pengeluaran manual (kas) di Wakamiya."
+    description="Kelola dan catat semua pemasukan dan pengeluaran manual (kas)."
     :breadcrumbs="['Dashboard' => route('dashboard'), 'Keuangan' => '#', 'Transaksi' => route('transactions.index')]"
 >
     <x-slot:headerActions>

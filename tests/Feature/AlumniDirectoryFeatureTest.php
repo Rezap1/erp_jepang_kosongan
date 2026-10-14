@@ -449,7 +449,7 @@ class AlumniDirectoryFeatureTest extends TestCase
         $this->assertStringContainsString('ALM-1', $html);
         $this->assertStringContainsString('Caregiver', $html);
         $this->assertStringContainsString('Specified Skilled Worker', $html);
-        $this->assertStringContainsString('Profil Alumni LPK Wakamiya', $html);
+        $this->assertStringContainsString('Profil Alumni '.config('branding.organization.name'), $html);
         $this->assertStringContainsString('Informasi Pribadi', $html);
         $this->assertStringContainsString('Pekerjaan &amp; Penempatan', $html);
         $this->assertStringContainsString('Informasi Visa', $html);

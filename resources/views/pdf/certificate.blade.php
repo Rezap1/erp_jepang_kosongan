@@ -8,7 +8,7 @@
     <h1 style="font-size: 48px; color: #0f172a; margin: 40px 0;">{{ $student['Full_Name'] ?? 'Nama Siswa' }}</h1>
     
     <p style="font-size: 16px; color: #334155; margin: 20px 80px; line-height: 1.6;">
-        Telah berhasil menyelesaikan <strong>{{ $program['Program_Name'] ?? 'Program Pelatihan' }}</strong> di Wakamiya Management System dan telah menunjukkan dedikasi serta kemampuan yang luar biasa dalam menguasai semua mata pelajaran yang disyaratkan.
+        Telah berhasil menyelesaikan <strong>{{ $program['Program_Name'] ?? 'Program Pelatihan' }}</strong> di {{ config('branding.application.name') }} dan telah menunjukkan dedikasi serta kemampuan yang luar biasa dalam menguasai semua mata pelajaran yang disyaratkan.
     </p>
 
     <div style="margin-top: 80px;">

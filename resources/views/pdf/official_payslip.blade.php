@@ -165,7 +165,7 @@
     <table class="header-table">
         <tr>
             <td>
-                <div class="company-name">{{ $company['name'] ?? 'WAKAMIYA MANAGEMENT SYSTEM' }}</div>
+                <div class="company-name">{{ $company['name'] ?? config('branding.organization.name') }}</div>
                 <div class="company-sub">{{ $company['tagline'] ?? 'Human Resource & Payroll Engine' }}</div>
                 <div style="font-size: 9px; color: #64748b; margin-top: 4px;">
                     {{ $company['address'] ?? '' }} &bull; {{ $company['contact'] ?? '' }}
@@ -359,7 +359,7 @@
 
     <!-- DISCLAIMER -->
     <div class="disclaimer">
-        Dokumen ini merupakan Slip Gaji Resmi yang diterbitkan secara elektronik oleh Wakamiya Management System (WMS). Informasi keuangan ini bersifat rahasia dan hanya ditujukan untuk pemilik gaji yang bersangkutan.
+        Dokumen ini merupakan Slip Gaji Resmi yang diterbitkan secara elektronik oleh {{ config('branding.application.name') }}. Informasi keuangan ini bersifat rahasia dan hanya ditujukan untuk pemilik gaji yang bersangkutan.
     </div>
 
 </body>

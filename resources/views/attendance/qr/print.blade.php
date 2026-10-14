@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Presensi {{ $qr['QR_TYPE'] === 'STUDENT' ? 'Siswa' : 'Pegawai' }} - {{ $qr['LABEL'] ?? 'LPK WAKAMIYA' }}</title>
+    <title>QR Presensi {{ $qr['QR_TYPE'] === 'STUDENT' ? 'Siswa' : 'Pegawai' }} - {{ $qr['LABEL'] ?? config('branding.organization.name') }}</title>
     @php $isPdf = $isPdf ?? request()->has('pdf'); @endphp
     @if(!$isPdf)
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -169,7 +169,7 @@
 
     <div class="print-container">
         <div>
-            <div class="logo">WAKAMIYA</div>
+            <div class="logo">{{ config('branding.application.short_name') }}</div>
             <div class="sys-name">Management System</div>
         </div>
 

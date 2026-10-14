@@ -44,14 +44,14 @@
         <table>
             <tr>
                 <td class="header-logo">
-                    @php($imagePath = public_path('img/logo.png.jpeg'))
+                    @php($imagePath = public_path(config('branding.assets.logo')))
                     @if(is_file($imagePath))
-                        <img src="data:image/jpeg;base64,{{ base64_encode(file_get_contents($imagePath)) }}" alt="Logo">
+                        <img src="data:{{ mime_content_type($imagePath) }};base64,{{ base64_encode(file_get_contents($imagePath)) }}" alt="Logo">
                     @endif
                 </td>
                 <td class="header-text">
-                    <div class="company-name">PT. WAKAMIYA MANDIRI SEJAHTERA</div>
-                    <div class="company-address">Laporan resmi WAKAMIYA MANAGEMENT SYSTEM (WMS)</div>
+                    <div class="company-name">{{ config('branding.organization.name') }}</div>
+                    <div class="company-address">Laporan resmi {{ config('branding.application.name') }}</div>
                 </td>
             </tr>
         </table>
@@ -82,7 +82,7 @@
 
     <div class="footer">
         <table><tr>
-            <td style="text-align:left; width: 50%;">WAKAMIYA MANAGEMENT SYSTEM</td>
+            <td style="text-align:left; width: 50%;">{{ config('branding.application.name') }}</td>
             <td style="text-align:right; width: 50%;">Halaman <span class="page-number"></span></td>
         </tr></table>
     </div>

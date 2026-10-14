@@ -31,7 +31,7 @@ class SystemSettingService
                 'Setting_Name' => 'Warna Utama (Primary Color)',
                 'Description' => 'Warna utama untuk tombol primary, aksen, dan elemen aktif di WMS.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#38BDF8',
+                'Setting_Value' => config('branding.colors.primary'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_SECONDARY',
@@ -40,7 +40,7 @@ class SystemSettingService
                 'Setting_Name' => 'Warna Sekunder (Secondary Color)',
                 'Description' => 'Warna sekunder untuk latar belakang elemen kontras.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#0F172A',
+                'Setting_Value' => config('branding.colors.secondary'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_SIDEBAR_BG',
@@ -49,7 +49,7 @@ class SystemSettingService
                 'Setting_Name' => 'Background Sidebar',
                 'Description' => 'Warna latar belakang navigasi sidebar.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#111827',
+                'Setting_Value' => config('branding.colors.sidebar_bg'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_SIDEBAR_TEXT',
@@ -58,7 +58,7 @@ class SystemSettingService
                 'Setting_Name' => 'Teks Sidebar',
                 'Description' => 'Warna teks default menu sidebar.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#94A3B8',
+                'Setting_Value' => config('branding.colors.sidebar_text'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_SIDEBAR_ACTIVE_BG',
@@ -67,7 +67,7 @@ class SystemSettingService
                 'Setting_Name' => 'Background Menu Aktif Sidebar',
                 'Description' => 'Warna latar belakang menu yang sedang aktif di sidebar.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#1E293B',
+                'Setting_Value' => config('branding.colors.sidebar_active_bg'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_SIDEBAR_ACTIVE_TEXT',
@@ -76,7 +76,7 @@ class SystemSettingService
                 'Setting_Name' => 'Teks Menu Aktif Sidebar',
                 'Description' => 'Warna teks menu yang sedang aktif di sidebar.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#38BDF8',
+                'Setting_Value' => config('branding.colors.sidebar_active_text'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_TOPBAR_BG',
@@ -85,7 +85,7 @@ class SystemSettingService
                 'Setting_Name' => 'Background Topbar',
                 'Description' => 'Warna latar belakang header topbar.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#111827',
+                'Setting_Value' => config('branding.colors.topbar_bg'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_CARD_BG',
@@ -94,7 +94,7 @@ class SystemSettingService
                 'Setting_Name' => 'Background Kartu (Card)',
                 'Description' => 'Warna latar belakang kontainer kartu data.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#FFFFFF',
+                'Setting_Value' => config('branding.colors.card_bg'),
             ],
             [
                 'Setting_ID' => 'SET_BRAND_PAGE_BG',
@@ -103,7 +103,7 @@ class SystemSettingService
                 'Setting_Name' => 'Background Halaman (Page)',
                 'Description' => 'Warna latar belakang utama seluruh halaman WMS.',
                 'Value_Type' => 'color',
-                'Setting_Value' => '#E2E8F0',
+                'Setting_Value' => config('branding.colors.page_bg'),
             ],
 
             // GENERAL
@@ -114,7 +114,7 @@ class SystemSettingService
                 'Setting_Name' => 'Nama Aplikasi / Sistem',
                 'Description' => 'Nama resmi sistem yang ditampilkan pada header dan footer.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'WAKAMIYA MANAGEMENT SYSTEM',
+                'Setting_Value' => config('branding.application.name'),
             ],
             [
                 'Setting_ID' => 'SET_GENERAL_TIMEZONE',
@@ -162,7 +162,7 @@ class SystemSettingService
                 'Setting_Name' => 'Nama Perusahaan / LPK',
                 'Description' => 'Nama resmi perusahaan/lembaga yang ditampilkan pada logo, kop surat, dan dokumen.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'WAKAMIYA MANAGEMENT SYSTEM',
+                'Setting_Value' => config('branding.organization.name'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_TAGLINE',
@@ -171,7 +171,7 @@ class SystemSettingService
                 'Setting_Name' => 'Slogan / Tagline Perusahaan',
                 'Description' => 'Slogan resmi perusahaan yang ditampilkan di bawah logo pada sidebar.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'Enterprise Human Resource Engine',
+                'Setting_Value' => config('branding.organization.tagline'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_LOGO',
@@ -180,7 +180,7 @@ class SystemSettingService
                 'Setting_Name' => 'Logo Utama Perusahaan / LPK',
                 'Description' => 'File gambar logo resmi perusahaan (PNG/JPG/WEBP, Max 5MB).',
                 'Value_Type' => 'file',
-                'Setting_Value' => 'img/logo.png.jpeg',
+                'Setting_Value' => config('branding.assets.logo'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_ADDRESS',
@@ -189,7 +189,7 @@ class SystemSettingService
                 'Setting_Name' => 'Alamat Lengkap Perusahaan',
                 'Description' => 'Alamat kantor resmi yang dicantumkan pada kop surat dan kwitansi.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'Jl. Raya Wakamiya No. 88, Jakarta Selatan 12930',
+                'Setting_Value' => config('branding.organization.address'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_PHONE',
@@ -198,7 +198,7 @@ class SystemSettingService
                 'Setting_Name' => 'Nomor Telepon Kantor',
                 'Description' => 'Nomor telepon resmi perusahaan.',
                 'Value_Type' => 'text',
-                'Setting_Value' => '(021) 8000-9999',
+                'Setting_Value' => config('branding.organization.phone'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_EMAIL',
@@ -207,7 +207,7 @@ class SystemSettingService
                 'Setting_Name' => 'Email Perusahaan',
                 'Description' => 'Alamat kontak email utama perusahaan.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'hr@wakamiya.ac.id',
+                'Setting_Value' => config('branding.organization.email'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_WEB',
@@ -216,7 +216,7 @@ class SystemSettingService
                 'Setting_Name' => 'Website Resmi',
                 'Description' => 'Alamat situs resmi perusahaan.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'https://wakamiya.ac.id',
+                'Setting_Value' => config('branding.organization.website'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_NPWP',
@@ -225,7 +225,7 @@ class SystemSettingService
                 'Setting_Name' => 'Nomor NPWP Perusahaan',
                 'Description' => 'Nomor Pokok Wajib Pajak (NPWP) resmi perusahaan.',
                 'Value_Type' => 'text',
-                'Setting_Value' => '01.234.567.8-901.000',
+                'Setting_Value' => config('branding.organization.npwp'),
             ],
 
             // COMPANY DOCUMENT & SIGNATURE
@@ -236,7 +236,7 @@ class SystemSettingService
                 'Setting_Name' => 'Nama Penandatangan Resmi',
                 'Description' => 'Nama pejabat berwenang yang tercantum pada Sertifikat & Invoice.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'Dr. Reza Pekanbaru',
+                'Setting_Value' => config('branding.document.signer_name'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_SIGNER_TITLE',
@@ -245,7 +245,7 @@ class SystemSettingService
                 'Setting_Name' => 'Jabatan Penandatangan',
                 'Description' => 'Jabatan resmi pejabat penandatangan dokumen.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'General Director & Founder',
+                'Setting_Value' => config('branding.document.signer_title'),
             ],
             [
                 'Setting_ID' => 'SET_COMPANY_SIGNATURE_URL',
@@ -272,7 +272,7 @@ class SystemSettingService
                 'Setting_Name' => 'Prefix Nomor Dokumen',
                 'Description' => 'Awalan penomoran dokumen resmi WMS.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'DOC/WMS/',
+                'Setting_Value' => config('branding.document.prefix'),
             ],
 
             // HR ATTENDANCE & GEOFENCE H8.22
@@ -586,7 +586,7 @@ class SystemSettingService
                 'Setting_Name' => 'Nama Pemilik Rekening',
                 'Description' => 'Nama pemilik rekening yang ditampilkan pada dokumen pembayaran.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'PT WAKAMIYA INDONESIA',
+                'Setting_Value' => config('branding.bank.account_holder'),
             ],
             [
                 'Setting_ID' => 'SET_BANK_BRANCH',
@@ -765,7 +765,7 @@ class SystemSettingService
                 'Setting_Name' => 'Alamat Email Pengirim (From Address)',
                 'Description' => 'Alamat email yang tampil sebagai pengirim pesan WMS.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'hr@wakamiya.ac.id',
+                'Setting_Value' => config('branding.organization.email'),
             ],
             [
                 'Setting_ID' => 'SET_EMAIL_FROM_NAME',
@@ -774,7 +774,7 @@ class SystemSettingService
                 'Setting_Name' => 'Nama Pengirim (From Name)',
                 'Description' => 'Nama instansi/sistem yang tampil sebagai pengirim email.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'WAKAMIYA MANAGEMENT SYSTEM',
+                'Setting_Value' => config('branding.application.name'),
             ],
             [
                 'Setting_ID' => 'SET_EMAIL_REPLY_TO',
@@ -783,7 +783,7 @@ class SystemSettingService
                 'Setting_Name' => 'Reply-To Address',
                 'Description' => 'Alamat balasan email opsional.',
                 'Value_Type' => 'text',
-                'Setting_Value' => 'hr@wakamiya.ac.id',
+                'Setting_Value' => config('branding.organization.email'),
             ],
             [
                 'Setting_ID' => 'SET_EMAIL_CREDENTIAL_DATA',
@@ -1200,30 +1200,41 @@ class SystemSettingService
     {
         return Cache::rememberForever('system_company_profile_payload', function () {
             $name = $this->get('COMPANY_NAME')
-                ?: ($this->get('SET_COMPANY_NAME')
-                ?: ($this->get('SET_GENERAL_APP_NAME')
-                ?: ($this->get('APP_NAME', 'WAKAMIYA MANAGEMENT SYSTEM'))));
+                ?: $this->get('SET_COMPANY_NAME')
+                ?: $this->get('SET_GENERAL_APP_NAME')
+                ?: $this->get('APP_NAME', config('branding.application.name'));
+            $name = $this->configuredBrandingValue(
+                $name,
+                ['WAKAMIYA MANAGEMENT SYSTEM', 'LPK WAKAMIYA'],
+                config('branding.organization.name')
+            );
 
             $tagline = $this->get('COMPANY_TAGLINE')
-                ?: ($this->get('SET_COMPANY_TAGLINE')
-                ?: ($this->get('SET_GENERAL_TAGLINE')
-                ?: ($this->get('COMPANY_SLOGAN', 'Enterprise Human Resource Engine'))));
+                ?: $this->get('SET_COMPANY_TAGLINE')
+                ?: $this->get('SET_GENERAL_TAGLINE')
+                ?: $this->get('COMPANY_SLOGAN', config('branding.organization.tagline'));
+            $tagline = $this->configuredBrandingValue(
+                $tagline,
+                ['Enterprise Human Resource Engine', 'Enterprise ERP & Human Resource Engine'],
+                config('branding.organization.tagline')
+            );
 
             $logo = $this->get('COMPANY_LOGO')
-                ?: ($this->get('SET_COMPANY_LOGO')
-                ?: ($this->get('BRAND_LOGO')
-                ?: ($this->get('SET_BRAND_LOGO')
-                ?: ($this->get('APP_LOGO', '')))));
+                ?: $this->get('SET_COMPANY_LOGO')
+                ?: $this->get('BRAND_LOGO')
+                ?: $this->get('SET_BRAND_LOGO')
+                ?: $this->get('APP_LOGO', config('branding.assets.logo'));
+            $logo = $this->configuredBrandingValue(
+                $logo,
+                ['img/logo.png.jpeg'],
+                config('branding.assets.logo')
+            );
 
-            if (empty($logo) || $logo === 'img/logo.png.jpeg') {
-                if (file_exists(storage_path('app/public/companies/logos/company_logo_1786935935.jpeg'))) {
-                    $logo = 'storage/companies/logos/company_logo_1786935935.jpeg';
-                } elseif (file_exists(storage_path('app/public/companies/logos/logo_1786932667.jpeg'))) {
-                    $logo = 'storage/companies/logos/logo_1786932667.jpeg';
-                }
+            if (empty($logo)) {
+                $logo = config('branding.assets.logo');
             }
 
-            $logoUrl = asset('img/logo.png.jpeg');
+            $logoUrl = asset(config('branding.assets.logo'));
             if (! empty($logo)) {
                 if (str_starts_with($logo, 'http')) {
                     $logoUrl = $logo;
@@ -1244,25 +1255,25 @@ class SystemSettingService
                     'tagline' => $tagline,
                     'logo' => $logo,
                     'logo_url' => $logoUrl,
-                    'address' => $this->get('COMPANY_ADDRESS', 'Jl. Raya Wakamiya No. 88, Jakarta Selatan 12930'),
-                    'phone' => $this->get('COMPANY_PHONE', '(021) 8000-9999'),
-                    'whatsapp' => $this->get('COMPANY_WA', ''),
-                    'email' => $this->get('COMPANY_EMAIL', 'hr@wakamiya.ac.id'),
-                    'website' => $this->get('COMPANY_WEB', 'https://wakamiya.ac.id'),
-                    'npwp' => $this->get('COMPANY_NPWP', ''),
+                    'address' => $this->configuredBrandingValue($this->get('COMPANY_ADDRESS', config('branding.organization.address')), ['Jl. Raya Wakamiya No. 88, Jakarta Selatan 12930'], config('branding.organization.address')),
+                    'phone' => $this->configuredBrandingValue($this->get('COMPANY_PHONE', config('branding.organization.phone')), ['(021) 8000-9999'], config('branding.organization.phone')),
+                    'whatsapp' => $this->get('COMPANY_WA', config('branding.organization.whatsapp')),
+                    'email' => $this->configuredBrandingValue($this->get('COMPANY_EMAIL', config('branding.organization.email')), ['hr@wakamiya.ac.id', 'lpkwakamiya01@gmail.com'], config('branding.organization.email')),
+                    'website' => $this->configuredBrandingValue($this->get('COMPANY_WEB', config('branding.organization.website')), ['https://wakamiya.ac.id', 'www.wakamiya.com', 'https://www.lpkwakamiya.com'], config('branding.organization.website')),
+                    'npwp' => $this->configuredBrandingValue($this->get('COMPANY_NPWP', config('branding.organization.npwp')), ['01.234.567.8-901.000', '1000000003150626'], config('branding.organization.npwp')),
                 ],
                 'bank' => [
-                    'name' => $this->get('COMPANY_BANK_NAME', 'BANK BCA'),
-                    'account_number' => $this->get('COMPANY_BANK_ACCOUNT', '888-999-777'),
-                    'account_holder' => $this->get('COMPANY_BANK_HOLDER', 'PT WAKAMIYA INDONESIA'),
-                    'branch' => $this->get('COMPANY_BANK_BRANCH', 'KCU Jakarta'),
+                    'name' => $this->configuredBrandingValue($this->get('COMPANY_BANK_NAME', config('branding.bank.name')), ['BANK BCA', 'Bank Syariah Indonesia (BSI)'], config('branding.bank.name')),
+                    'account_number' => $this->configuredBrandingValue($this->get('COMPANY_BANK_ACCOUNT', config('branding.bank.account_number')), ['888-999-777', '7343551023'], config('branding.bank.account_number')),
+                    'account_holder' => $this->configuredBrandingValue($this->get('COMPANY_BANK_HOLDER', config('branding.bank.account_holder')), ['PT WAKAMIYA INDONESIA', 'PT WAKAMIYA MANDIRI SEJAHTERA'], config('branding.bank.account_holder')),
+                    'branch' => $this->configuredBrandingValue($this->get('COMPANY_BANK_BRANCH', config('branding.bank.branch')), ['KCU Jakarta'], config('branding.bank.branch')),
                 ],
                 'document' => [
                     'signature_url' => $this->get('COMPANY_SIGNATURE_URL', ''),
                     'stamp_url' => $this->get('COMPANY_STAMP_URL', ''),
-                    'signer_name' => $this->get('COMPANY_SIGNER_NAME', 'Dr. Reza Pekanbaru'),
-                    'signer_title' => $this->get('COMPANY_SIGNER_TITLE', 'General Director & Founder'),
-                    'prefix' => $this->get('DOCUMENT_PREFIX', $this->get('COMPANY_DOC_PREFIX', 'DOC/WMS/')),
+                    'signer_name' => $this->configuredBrandingValue($this->get('COMPANY_SIGNER_NAME', config('branding.document.signer_name')), ['Dr. Reza Pekanbaru', 'Helmi Maulana'], config('branding.document.signer_name')),
+                    'signer_title' => $this->configuredBrandingValue($this->get('COMPANY_SIGNER_TITLE', config('branding.document.signer_title')), ['General Director & Founder'], config('branding.document.signer_title')),
+                    'prefix' => $this->configuredBrandingValue($this->get('DOCUMENT_PREFIX', $this->get('COMPANY_DOC_PREFIX', config('branding.document.prefix'))), ['DOC/WMS/'], config('branding.document.prefix')),
                 ],
             ];
         });
@@ -1275,20 +1286,35 @@ class SystemSettingService
     {
         return Cache::rememberForever('system_theme_tokens_payload', function () {
             return [
-                'primary' => $this->get('BRAND_PRIMARY_COLOR', '#38BDF8'),
-                'secondary' => $this->get('BRAND_SECONDARY_COLOR', '#0F172A'),
-                'accent' => $this->get('BRAND_ACCENT_COLOR', '#0EA5E9'),
-                'sidebar_bg' => $this->get('BRAND_SIDEBAR_BG', '#111827'),
-                'sidebar_text' => $this->get('BRAND_SIDEBAR_TEXT', '#94A3B8'),
-                'sidebar_active_bg' => $this->get('BRAND_SIDEBAR_ACTIVE_BG', '#1E293B'),
-                'sidebar_active' => $this->get('BRAND_SIDEBAR_ACTIVE_TEXT', '#38BDF8'),
-                'topbar_bg' => ($this->get('BRAND_TOPBAR_BG', '#FFFFFF') === '#111827') ? '#FFFFFF' : $this->get('BRAND_TOPBAR_BG', '#FFFFFF'),
-                'topbar_text' => $this->get('BRAND_TOPBAR_TEXT', '#0F172A'),
-                'page_bg' => $this->get('BRAND_PAGE_BG', '#E2E8F0'),
-                'card_bg' => $this->get('BRAND_CARD_BG', '#FFFFFF'),
+                'primary' => $this->configuredBrandingValue($this->get('BRAND_PRIMARY_COLOR', config('branding.colors.primary')), ['#38BDF8'], config('branding.colors.primary')),
+                'secondary' => $this->get('BRAND_SECONDARY_COLOR', config('branding.colors.secondary')),
+                'accent' => $this->configuredBrandingValue($this->get('BRAND_ACCENT_COLOR', config('branding.colors.accent')), ['#0EA5E9'], config('branding.colors.accent')),
+                'sidebar_bg' => $this->configuredBrandingValue($this->get('BRAND_SIDEBAR_BG', config('branding.colors.sidebar_bg')), ['#111827'], config('branding.colors.sidebar_bg')),
+                'sidebar_text' => $this->configuredBrandingValue($this->get('BRAND_SIDEBAR_TEXT', config('branding.colors.sidebar_text')), ['#94A3B8'], config('branding.colors.sidebar_text')),
+                'sidebar_active_bg' => $this->configuredBrandingValue($this->get('BRAND_SIDEBAR_ACTIVE_BG', config('branding.colors.sidebar_active_bg')), ['#1E293B'], config('branding.colors.sidebar_active_bg')),
+                'sidebar_active' => $this->configuredBrandingValue($this->get('BRAND_SIDEBAR_ACTIVE_TEXT', config('branding.colors.sidebar_active_text')), ['#38BDF8'], config('branding.colors.sidebar_active_text')),
+                'topbar_bg' => $this->configuredBrandingValue($this->get('BRAND_TOPBAR_BG', config('branding.colors.topbar_bg')), ['#111827'], config('branding.colors.topbar_bg')),
+                'topbar_text' => $this->get('BRAND_TOPBAR_TEXT', config('branding.colors.topbar_text')),
+                'page_bg' => $this->configuredBrandingValue($this->get('BRAND_PAGE_BG', config('branding.colors.page_bg')), ['#E2E8F0'], config('branding.colors.page_bg')),
+                'card_bg' => $this->get('BRAND_CARD_BG', config('branding.colors.card_bg')),
                 'theme_mode' => $this->get('BRAND_THEME_MODE', 'dark'),
             ];
         });
+    }
+
+    private function configuredBrandingValue(mixed $value, array $legacyValues, mixed $configuredValue): mixed
+    {
+        $normalizedValue = strtolower(trim((string) $value));
+        $normalizedLegacyValues = array_map(
+            static fn (mixed $legacyValue): string => strtolower(trim((string) $legacyValue)),
+            $legacyValues
+        );
+
+        if ($normalizedValue === '' || in_array($normalizedValue, $normalizedLegacyValues, true)) {
+            return $configuredValue;
+        }
+
+        return $value;
     }
 
     /**
@@ -1304,8 +1330,8 @@ class SystemSettingService
         $connectedAt = $this->get('SET_EMAIL_CONNECTED_AT', $this->get('EMAIL_CONNECTED_AT', null));
         $connectedAccount = $this->get('SET_EMAIL_CONNECTED_ACCOUNT', $this->get('EMAIL_CONNECTED_ACCOUNT', null));
 
-        $fromAddress = $this->get('SET_EMAIL_FROM_ADDRESS', $this->get('EMAIL_FROM_ADDRESS', $company['company']['email'] ?? 'hr@wakamiya.ac.id'));
-        $fromName = $this->get('SET_EMAIL_FROM_NAME', $this->get('EMAIL_FROM_NAME', $company['company']['name'] ?? 'WAKAMIYA MANAGEMENT SYSTEM'));
+        $fromAddress = $this->get('SET_EMAIL_FROM_ADDRESS', $this->get('EMAIL_FROM_ADDRESS', $company['company']['email'] ?? config('branding.organization.email')));
+        $fromName = $this->get('SET_EMAIL_FROM_NAME', $this->get('EMAIL_FROM_NAME', $company['company']['name'] ?? config('branding.application.name')));
         $replyTo = $this->get('SET_EMAIL_REPLY_TO', $this->get('EMAIL_REPLY_TO', $fromAddress));
 
         // Read encrypted credential payload if exists
@@ -1333,8 +1359,8 @@ class SystemSettingService
             'status' => $status,
             'connected_at' => $connectedAt,
             'connected_account' => $connectedAccount ?: $fromAddress,
-            'from_address' => $fromAddress ?: 'hr@wakamiya.ac.id',
-            'from_name' => $fromName ?: 'WAKAMIYA MANAGEMENT SYSTEM',
+            'from_address' => $fromAddress ?: config('branding.organization.email'),
+            'from_name' => $fromName ?: config('branding.application.name'),
             'reply_to' => $replyTo ?: $fromAddress,
             'is_healthy' => $isHealthy,
             'has_credentials' => ! empty($credentials),

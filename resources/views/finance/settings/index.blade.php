@@ -2,7 +2,7 @@
 @section('header', 'Pengaturan Finance')
 @section('content')
 <div class="space-y-6 max-w-5xl mx-auto">
-    <x-page-header title="Pengaturan Finance" description="Kelola konfigurasi operasional modul keuangan Wakamiya." :breadcrumbs="['Dasbor' => route('dashboard.finance'), 'Pengaturan Finance' => '#']" />
+    <x-page-header title="Pengaturan Finance" description="Kelola konfigurasi operasional modul keuangan." :breadcrumbs="['Dasbor' => route('dashboard.finance'), 'Pengaturan Finance' => '#']" />
 
     @if(session('success'))
         <div class="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl p-4 text-sm font-bold">

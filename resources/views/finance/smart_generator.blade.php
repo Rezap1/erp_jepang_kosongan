@@ -12,7 +12,7 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </div>
             <div>
-                <h1 class="text-base font-black tracking-wide text-white flex items-center gap-2" x-text="company.company_name || 'PT WAKAMIYA MANDIRI SEJAHTERA'"></h1>
+                <h1 class="text-base font-black tracking-wide text-white flex items-center gap-2" x-text="company.company_name || 'Nama LPK / Perusahaan'"></h1>
                 <p class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mt-0.5">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     Smart Generator Invoice & Kwitansi Pro V3
@@ -568,7 +568,7 @@
                                             <img :src="company.company_logo" class="w-16 h-16 object-contain shrink-0">
                                         </template>
                                         <div>
-                                            <h2 class="text-base font-black text-slate-950 uppercase tracking-tight leading-snug" x-text="company.company_name || 'PT WAKAMIYA MANDIRI SEJAHTERA'"></h2>
+                                            <h2 class="text-base font-black text-slate-950 uppercase tracking-tight leading-snug" x-text="company.company_name || 'Nama LPK / Perusahaan'"></h2>
                                             <p class="text-[10px] font-extrabold italic mt-0.5" :style="'color: ' + getThemeColors().primary" x-text="company.company_tagline || 'Growing Together With Integrity'"></p>
                                             <p class="text-[10px] text-slate-800 font-medium leading-snug mt-1" x-text="company.company_address"></p>
                                             <p class="text-[10px] text-slate-800 font-semibold mt-0.5">
@@ -717,7 +717,7 @@
                         <!-- SIGNATURE FOOTER FOR ALL DOCS -->
                         <div class="pt-6 mt-6 flex justify-end">
                             <div class="w-56 text-center space-y-1">
-                                <p class="text-[10px] text-slate-800 font-bold" x-text="(kwitansi.issue_city || 'Cianjur') + ', ' + formatDate(activeTab === 'kwitansi' ? kwitansi.issue_date : invoice.issue_date)"></p>
+                                <p class="text-[10px] text-slate-800 font-bold" x-text="(kwitansi.issue_city || @js(config('branding.document.issue_city'))) + ', ' + formatDate(activeTab === 'kwitansi' ? kwitansi.issue_date : invoice.issue_date)"></p>
                                 <div class="h-16 relative flex items-center justify-center my-1">
                                     <template x-if="company.stamp">
                                         <img :src="company.stamp" class="absolute h-16 opacity-85 z-0">
@@ -726,14 +726,14 @@
                                         <img :src="company.signature" class="relative z-10 h-16 object-contain">
                                     </template>
                                 </div>
-                                <p class="font-black text-slate-950 text-xs border-b-2 border-slate-950 pb-0.5 inline-block" x-text="activeTab === 'kwitansi' ? (kwitansi.signer_name || 'Helmi Maulana') : (company.company_name || 'PT WAKAMIYA MANDIRI SEJAHTERA')"></p>
-                                <p class="text-[9px] text-slate-700 font-extrabold" x-text="activeTab === 'kwitansi' ? (company.company_name || 'PT WAKAMIYA MANDIRI SEJAHTERA') : 'Finance & Accounting Dept.'"></p>
+                                <p class="font-black text-slate-950 text-xs border-b-2 border-slate-950 pb-0.5 inline-block" x-text="activeTab === 'kwitansi' ? (kwitansi.signer_name || 'Nama Penandatangan') : (company.company_name || 'Nama LPK / Perusahaan')"></p>
+                                <p class="text-[9px] text-slate-700 font-extrabold" x-text="activeTab === 'kwitansi' ? (company.company_name || 'Nama LPK / Perusahaan') : 'Finance & Accounting Dept.'"></p>
                             </div>
                         </div>
 
                         <!-- WATERMARK FOOTER -->
                         <div class="text-center text-[8.5px] text-slate-500 font-bold pt-4 border-t border-slate-200 mt-4">
-                            Dokumen resmi diterbitkan secara sah oleh komputer <span x-text="company.company_name || 'PT WAKAMIYA MANDIRI SEJAHTERA'"></span>.
+                            Dokumen resmi diterbitkan secara sah oleh komputer <span x-text="company.company_name || 'Nama LPK / Perusahaan'"></span>.
                         </div>
 
                     </div>
@@ -792,18 +792,18 @@ function smartGenerator() {
         selectedInvoice: null,
 
         company: {
-            company_name: "PT WAKAMIYA MANDIRI SEJAHTERA",
-            company_tagline: "Growing Together With Integrity",
-            company_address: "Perum Graha Samolo Indah Blok B1 No 22 Desa Babakan Caringin, Karang Tengah,Cianjur",
-            company_phone: "0813-1811-5151",
-            company_email: "lpkwakamiya01@gmail.com",
-            company_web: "www.wakamiya.com",
-            company_npwp: "1000000003150626",
-            bank_name: "Bank Syariah Indonesia (BSI)",
-            bank_account: "7343551023",
-            bank_holder: "PT WAKAMIYA MANDIRI SEJAHTERA",
+            company_name: @js(config('branding.organization.name')),
+            company_tagline: @js(config('branding.organization.tagline')),
+            company_address: @js(config('branding.organization.address')),
+            company_phone: @js(config('branding.organization.phone')),
+            company_email: @js(config('branding.organization.email')),
+            company_web: @js(config('branding.organization.website')),
+            company_npwp: @js(config('branding.organization.npwp')),
+            bank_name: @js(config('branding.bank.name')),
+            bank_account: @js(config('branding.bank.account_number')),
+            bank_holder: @js(config('branding.bank.account_holder')),
             layout_kop: 'left',
-            company_logo: "{{ asset('img/logo.png.jpeg') }}",
+            company_logo: @js(asset(config('branding.assets.logo'))),
             signature: "",
             stamp: ""
         },
@@ -824,7 +824,7 @@ function smartGenerator() {
             discount: 0,
             ppn_percent: 0,
             shipping: 0,
-            notes: 'Pembayaran via Transfer BSI 7343551023 a.n PT Wakamiya Mandiri Sejahtera.'
+            notes: 'Pembayaran dilakukan ke rekening resmi yang tercantum pada dokumen.'
         },
 
         kwitansi: {
@@ -836,8 +836,8 @@ function smartGenerator() {
             client_email: '',
             kwitansi_amount: 33450000,
             payment_for: 'Total Angsuran Keempat Biaya Pengurusan Dokumen Ke Jepang',
-            issue_city: 'Cianjur',
-            signer_name: 'Helmi Maulana'
+            issue_city: @js(config('branding.document.issue_city')),
+            signer_name: @js(config('branding.document.signer_name'))
         },
 
         init() {
@@ -979,7 +979,7 @@ function smartGenerator() {
             this.kwitansi.client_name = '';
             this.kwitansi.kwitansi_amount = 33450000;
             this.kwitansi.payment_for = 'Total Angsuran Keempat Biaya Pengurusan Dokumen Ke Jepang';
-            this.kwitansi.signer_name = 'Helmi Maulana';
+            this.kwitansi.signer_name = @js(config('branding.document.signer_name'));
         },
 
         resetForm() {
@@ -1261,7 +1261,7 @@ function smartGenerator() {
                 this.kwitansi.client_name = item.client_name;
                 this.kwitansi.kwitansi_amount = item.kwitansi_amount;
                 this.kwitansi.payment_for = item.payment_for;
-                this.kwitansi.signer_name = item.signer_name || 'Helmi Maulana';
+                this.kwitansi.signer_name = item.signer_name || @js(config('branding.document.signer_name'));
                 if (item.theme) this.kwitansi.theme = item.theme;
             } else {
                 this.activeTab = 'invoice';

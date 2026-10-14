@@ -3,7 +3,7 @@
 @section('content')
 @php($settingByKey = collect($settings)->keyBy('Setting_Key'))
 <div class="space-y-6 max-w-5xl mx-auto">
-    <x-page-header title="Pengaturan HR" description="Kelola konfigurasi operasional modul HR, payroll, dan kehadiran Wakamiya." :breadcrumbs="['Dasbor' => route('dashboard.hr'), 'Pengaturan HR' => '#']" />
+    <x-page-header title="Pengaturan HR" description="Kelola konfigurasi operasional modul HR, payroll, dan kehadiran." :breadcrumbs="['Dasbor' => route('dashboard.hr'), 'Pengaturan HR' => '#']" />
 
     @if(session('success'))
         <div class="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl p-4 text-sm font-bold">
