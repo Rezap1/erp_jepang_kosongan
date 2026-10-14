@@ -42,7 +42,7 @@ class TeacherQuizController extends Controller
         $selectedClass = $classes->first(
             fn ($row) => trim((string) ($row['Class_ID'] ?? '')) === trim($class)
         );
-        abort_unless($selectedClass, 403, 'Kelas berada di luar jadwal mengajar Anda.');
+        abort_unless($selectedClass, 403, 'Kelas berada di luar penugasan kelas Anda.');
         $hub = $this->quizzes->teacherClassHub(
             $teacher['Teacher_ID'],
             (string) $selectedClass['Class_ID'],
@@ -61,7 +61,7 @@ class TeacherQuizController extends Controller
         $selectedClass = $classes->first(
             fn ($row) => trim((string) ($row['Class_ID'] ?? '')) === trim($class)
         );
-        abort_unless($selectedClass, 403, 'Kelas berada di luar jadwal mengajar Anda.');
+        abort_unless($selectedClass, 403, 'Kelas berada di luar penugasan kelas Anda.');
 
         return view('quiz.teacher.form', [
             'quiz' => null,
@@ -88,7 +88,7 @@ class TeacherQuizController extends Controller
         $selectedClass = $classes->first(
             fn ($row) => trim((string) ($row['Class_ID'] ?? '')) === trim($class)
         );
-        abort_unless($selectedClass, 403, 'Kelas berada di luar jadwal mengajar Anda.');
+        abort_unless($selectedClass, 403, 'Kelas berada di luar penugasan kelas Anda.');
         $request->merge(['Class_ID' => (string) $selectedClass['Class_ID']]);
         $data = $this->validated($request);
         $id = $this->quizzes->create($data, $teacher, (string) $request->user()->User_ID);
@@ -124,7 +124,7 @@ class TeacherQuizController extends Controller
         $teacher = $this->scope->teacherForUser($request->user());
         $classIds = $this->scope->classesForTeacher($teacher['Teacher_ID'])->pluck('Class_ID')->all();
         $data = $this->validated($request);
-        abort_unless(in_array($data['Class_ID'], $classIds, true), 403, 'Kelas berada di luar jadwal mengajar Anda.');
+        abort_unless(in_array($data['Class_ID'], $classIds, true), 403, 'Kelas berada di luar penugasan kelas Anda.');
         $this->quizzes->update($quiz, $data, $teacher, (string) $request->user()->User_ID, $classIds);
 
         return redirect()->route('teacher.quizzes.show', $quiz)->with('success', 'Kuis berhasil diperbarui.');
@@ -164,11 +164,9 @@ class TeacherQuizController extends Controller
         if ($requestedClass !== '' && ! $classes->contains(
             fn ($class) => trim((string) ($class['Class_ID'] ?? '')) === $requestedClass
         )) {
-            abort(403, 'Kelas berada di luar jadwal mengajar Anda.');
+            abort(403, 'Kelas berada di luar penugasan kelas Anda.');
         }
-        $selectedClass = $requestedClass !== ''
-            ? $requestedClass
-            : trim((string) ($classes->first()['Class_ID'] ?? ''));
+        $selectedClass = $requestedClass;
         $roster = $selectedClass !== '' ? $this->scope->studentsForClass($selectedClass) : collect();
         $overview = $selectedClass !== ''
             ? $this->quizzes->teacherResults($teacher['Teacher_ID'], $selectedClass, $roster)
@@ -189,7 +187,7 @@ class TeacherQuizController extends Controller
         $selectedClass = $classes->first(
             fn ($row) => trim((string) ($row['Class_ID'] ?? '')) === trim($class)
         );
-        abort_unless($selectedClass, 403, 'Kelas berada di luar jadwal mengajar Anda.');
+        abort_unless($selectedClass, 403, 'Kelas berada di luar penugasan kelas Anda.');
 
         return view('quiz.leaderboard', $this->quizzes->leaderboard($class) + [
             'currentStudentId' => null,

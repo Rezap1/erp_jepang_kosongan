@@ -18,7 +18,7 @@
             @if($lockedClass)
                 <label class="text-sm font-bold">Kelas<input type="hidden" name="Class_ID" value="{{ $lockedClass['Class_ID'] }}"><span class="mt-2 flex min-h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-slate-800">{{ $lockedClass['Class_Name'] ?? 'Kelas Anda' }}</span></label>
             @else
-                <label class="text-sm font-bold">Kelas<select name="Class_ID" required class="mt-2 min-h-12 w-full rounded-xl border-slate-300">@foreach($classes as $class)<option value="{{ $class['Class_ID'] }}" @selected(old('Class_ID', $quiz['Class_ID'] ?? '') === $class['Class_ID'])>{{ $class['Class_Name'] ?? $class['Class_ID'] }}</option>@endforeach</select></label>
+                <label class="text-sm font-bold">Kelas<select name="Class_ID" required class="mt-2 min-h-12 w-full rounded-xl border-slate-300"><option value="">-- Pilih Kelas --</option>@foreach($classes as $class)<option value="{{ $class['Class_ID'] }}" @selected(old('Class_ID', $quiz['Class_ID'] ?? '') === $class['Class_ID'])>{{ $class['Class_Name'] ?? $class['Class_ID'] }}</option>@endforeach</select></label>
             @endif
             <label class="text-sm font-bold">Durasi (menit)<input type="number" min="1" max="480" name="Duration_Minutes" value="{{ old('Duration_Minutes', $quiz['Duration_Minutes'] ?? 30) }}" required class="mt-2 min-h-12 w-full rounded-xl border-slate-300"></label>
             <label class="text-sm font-bold">Mulai<input type="datetime-local" name="Start_At" value="{{ old('Start_At', isset($quiz['Start_At']) ? str_replace(' ', 'T', substr($quiz['Start_At'], 0, 16)) : '') }}" required class="mt-2 min-h-12 w-full rounded-xl border-slate-300"></label>

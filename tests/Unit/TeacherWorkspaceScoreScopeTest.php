@@ -52,7 +52,12 @@ class TeacherWorkspaceScoreScopeTest extends TestCase
             'getTeacherScoreScope' => [
                 'schedule_ids' => ['SCH-A'],
                 'class_ids' => ['CLS-A'],
+                'managed_class_ids' => ['CLS-A'],
+                'teaching_class_ids' => ['CLS-A'],
                 'student_ids' => ['STU-1', 'STU-2'],
+                'managed_student_ids' => ['STU-1', 'STU-2'],
+                'teaching_student_ids' => ['STU-1', 'STU-2'],
+                'managed_students_by_class' => ['CLS-A' => ['STU-1', 'STU-2']],
                 'assessment_ids' => ['ASM-A'],
                 'schedule_student_ids' => ['SCH-A' => ['STU-1', 'STU-2']],
             ],
@@ -76,6 +81,9 @@ class TeacherWorkspaceScoreScopeTest extends TestCase
             'managed_class_ids' => ['CLS-A'],
             'teaching_class_ids' => ['CLS-A'],
             'student_ids' => ['STU-1', 'STU-2'],
+            'managed_student_ids' => ['STU-1', 'STU-2'],
+            'teaching_student_ids' => ['STU-1', 'STU-2'],
+            'managed_students_by_class' => ['CLS-A' => ['STU-1', 'STU-2']],
             'assessment_ids' => ['ASM-A'],
             'schedule_student_ids' => ['SCH-A' => ['STU-1', 'STU-2']],
         ];
@@ -90,8 +98,8 @@ class TeacherWorkspaceScoreScopeTest extends TestCase
             $this->mockService(ClassService::class, []),
             $this->mockService(ScheduleService::class, []),
             $this->mockService(StudentService::class, ['getAllStudents' => collect([
-                ['Student_ID' => 'STU-1', 'Full_Name' => 'Student One'],
-                ['Student_ID' => 'STU-2', 'Full_Name' => 'Student Two'],
+                ['Student_ID' => 'STU-1', 'Full_Name' => 'Student One', 'Class_ID' => 'CLS-A'],
+                ['Student_ID' => 'STU-2', 'Full_Name' => 'Student Two', 'Class_ID' => 'CLS-A'],
             ])]),
             $this->mockService(AttendanceService::class, []),
             $this->mockService(AttendanceRequestService::class, []),

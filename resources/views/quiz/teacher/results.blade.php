@@ -22,6 +22,7 @@
                 <label for="quiz-result-class" class="text-sm font-black text-slate-800">Kelas</label>
                 <div class="mt-2 flex flex-col gap-2 sm:flex-row">
                     <select id="quiz-result-class" name="class" class="min-h-12 min-w-0 flex-1 rounded-xl border-slate-300" aria-label="Pilih kelas hasil kuis">
+                        <option value="">-- Pilih Kelas --</option>
                         @foreach($classes as $class)
                             <option value="{{ $class['Class_ID'] }}" @selected($selectedClass === $class['Class_ID'])>{{ $class['Class_Name'] ?? $class['Class_ID'] }}</option>
                         @endforeach

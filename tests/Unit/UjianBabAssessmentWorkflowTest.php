@@ -382,9 +382,15 @@ class UjianBabAssessmentWorkflowTest extends TestCase
         return [
             'schedule_ids' => ['SCH-A'],
             'class_ids' => ['CLS-A'],
+            'managed_class_ids' => ['CLS-A'],
+            'teaching_class_ids' => ['CLS-A'],
             'subject_ids' => ['SUB-A'],
             'student_ids' => ['STU-A'],
+            'managed_student_ids' => ['STU-A'],
+            'teaching_student_ids' => ['STU-A'],
             'assessment_ids' => [],
+            'managed_students_by_class' => ['CLS-A' => ['STU-A']],
+            'teaching_students_by_class' => ['CLS-A' => ['STU-A']],
             'schedule_student_ids' => ['SCH-A' => ['STU-A']],
         ];
     }

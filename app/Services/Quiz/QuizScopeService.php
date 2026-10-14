@@ -7,6 +7,7 @@ use App\Interfaces\GoogleSheets\ClassRepositoryInterface;
 use App\Interfaces\GoogleSheets\ScheduleRepositoryInterface;
 use App\Interfaces\GoogleSheets\StudentRepositoryInterface;
 use App\Interfaces\GoogleSheets\TeacherRepositoryInterface;
+use App\Support\Academic\TeacherClassAssignmentResolver;
 use Illuminate\Support\Collection;
 
 class QuizScopeService
@@ -57,9 +58,13 @@ class QuizScopeService
             return collect($this->teacherClassSnapshots[$teacherId]);
         }
 
-        $classIds = $this->scheduleRows()
-            ->filter(fn ($row) => trim((string) ($row['Teacher_ID'] ?? '')) === trim($teacherId) && $this->active((array) $row))
-            ->pluck('Class_ID')->map(fn ($id) => trim((string) $id))->filter()->unique()->values();
+        // Keep quiz class ownership aligned with the attendance workspace.
+        // MASTER_CLASS.Homeroom_Teacher_ID is the explicit class assignment;
+        // schedule rows may be stale and must not grant or relabel class access.
+        $classIds = collect(TeacherClassAssignmentResolver::managedClassIds(
+            $this->classRows(),
+            $teacherId,
+        ));
 
         $classes = $this->classRows()
             ->filter(fn ($row) => $classIds->contains(trim((string) ($row['Class_ID'] ?? ''))) && $this->active((array) $row))
@@ -93,7 +98,7 @@ class QuizScopeService
     {
         abort_unless($this->classesForTeacher($teacherId)->contains(
             fn ($row) => trim((string) ($row['Class_ID'] ?? '')) === trim($classId)
-        ), 403, 'Kelas berada di luar jadwal mengajar Anda.');
+        ), 403, 'Kelas berada di luar penugasan kelas Anda.');
     }
 
     private function active(array $row): bool

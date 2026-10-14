@@ -20,7 +20,7 @@ class H877QuizScopeTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_teacher_scope_uses_only_three_bulk_reads_and_excludes_inactive_or_foreign_classes(): void
+    public function test_teacher_scope_uses_explicit_class_assignment_and_excludes_inactive_or_foreign_classes(): void
     {
         $teachers = Mockery::mock(TeacherRepositoryInterface::class);
         $students = Mockery::mock(StudentRepositoryInterface::class);
@@ -28,15 +28,11 @@ class H877QuizScopeTest extends TestCase
         $classes = Mockery::mock(ClassRepositoryInterface::class);
         $teachers->shouldReceive('fetchAll')->once()->andReturn(collect([['Teacher_ID' => 'T1', 'User_ID' => 'U1', 'Is_Active' => 'TRUE']]));
         $students->shouldNotReceive('fetchAll');
-        $schedules->shouldReceive('fetchAll')->once()->andReturn(collect([
-            ['Teacher_ID' => 'T1', 'Class_ID' => 'C1', 'Is_Active' => 'TRUE'],
-            ['Teacher_ID' => 'T1', 'Class_ID' => 'C2', 'Is_Active' => 'FALSE'],
-            ['Teacher_ID' => 'T2', 'Class_ID' => 'C3', 'Is_Active' => 'TRUE'],
-        ]));
+        $schedules->shouldNotReceive('fetchAll');
         $classes->shouldReceive('fetchAll')->once()->andReturn(collect([
-            ['Class_ID' => 'C1', 'Class_Name' => 'Sakura', 'Is_Active' => 'TRUE'],
-            ['Class_ID' => 'C2', 'Class_Name' => 'Inactive', 'Is_Active' => 'TRUE'],
-            ['Class_ID' => 'C3', 'Class_Name' => 'Foreign', 'Is_Active' => 'TRUE'],
+            ['Class_ID' => 'C1', 'Class_Name' => 'Sakura', 'Homeroom_Teacher_ID' => 'T1', 'Is_Active' => 'TRUE'],
+            ['Class_ID' => 'C2', 'Class_Name' => 'Inactive', 'Homeroom_Teacher_ID' => 'T1', 'Is_Active' => 'FALSE'],
+            ['Class_ID' => 'C3', 'Class_Name' => 'Foreign', 'Homeroom_Teacher_ID' => 'T2', 'Is_Active' => 'TRUE'],
         ]));
         $scope = new QuizScopeService($teachers, $students, $schedules, $classes);
         $teacher = $scope->teacherForUser(new GenericUser(['User_ID' => 'U1']));
@@ -78,8 +74,8 @@ class H877QuizScopeTest extends TestCase
             ['Student_ID' => 'S2', 'Class_ID' => 'C1', 'Full_Name' => 'Budi', 'Is_Active' => 'TRUE'],
             ['Student_ID' => 'S3', 'Class_ID' => 'C2', 'Full_Name' => 'Cici', 'Is_Active' => 'TRUE'],
         ]));
-        $schedules->shouldReceive('fetchAll')->once()->andReturn(collect([['Teacher_ID' => 'T1', 'Class_ID' => 'C1', 'Is_Active' => 'TRUE']]));
-        $classes->shouldReceive('fetchAll')->once()->andReturn(collect([['Class_ID' => 'C1', 'Class_Name' => 'Kelas A', 'Is_Active' => 'TRUE']]));
+        $schedules->shouldNotReceive('fetchAll');
+        $classes->shouldReceive('fetchAll')->once()->andReturn(collect([['Class_ID' => 'C1', 'Class_Name' => 'Kelas A', 'Homeroom_Teacher_ID' => 'T1', 'Is_Active' => 'TRUE']]));
         $scope = new QuizScopeService($teachers, $students, $schedules, $classes);
 
         $scope->teacherForUser(new GenericUser(['User_ID' => 'U1']));

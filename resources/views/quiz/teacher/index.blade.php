@@ -30,7 +30,7 @@
             <section class="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center md:col-span-2 xl:col-span-3">
                 <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500"><x-sidebar.icon name="academic-cap" class="h-7 w-7" /></span>
                 <h3 class="mt-4 font-black text-slate-900">Belum ada kelas aktif</h3>
-                <p class="mt-1 text-sm text-slate-500">Kelas akan tampil setelah Anda memiliki jadwal mengajar aktif.</p>
+                <p class="mt-1 text-sm text-slate-500">Kelas akan tampil setelah penugasan kelas aktif tersimpan.</p>
             </section>
         @endforelse
     </div>

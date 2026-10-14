@@ -16,6 +16,7 @@
         <form method="GET" action="{{ route('teacher.workspace.scores') }}" class="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,.8fr)_auto] lg:items-end">
             <label class="min-w-0 text-sm font-black text-slate-700">Kelas
                 <select name="class" class="mt-2 min-h-12 w-full min-w-0 rounded-xl border-slate-300">
+                    <option value="">Semua Kelas</option>
                     @foreach($reportClasses ?? [] as $class)
                         <option value="{{ $class['Class_ID'] }}" @selected(($selectedClass ?? '') === $class['Class_ID'])>{{ $class['Class_Name'] }}</option>
                     @endforeach
